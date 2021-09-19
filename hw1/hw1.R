@@ -18,11 +18,13 @@
 # install.packages("pacman")
 # install.packages("car", repos="http://R-Forge.R-project.org")
 install.packages("plm")
+install.packages("lfe")
 library(tidyverse)
 library(fs)
 library(car)
 library(fastDummies)
 library(plm)
+library(lfe)
 
 
 ## WORKING DIRECTORIES ===============================
@@ -35,6 +37,94 @@ data3_path = path('pecanstreet_daily.csv')
 data1 = read.csv(data1_path)
 data2 = read.csv(data2_path)
 data3 = read.csv(data3_path)
+
+
+## SIMPLE APPROACH FOR CLUSTERED DATA ==============================
+FE1 = lm(kwh ~ factor(yearmonthid), data=data1)
+FE2 = lm(kwh ~ factor(custid) + factor(yearmonthid), data=data1)
+sigma2_e = sum(FE1$residuals^2) / (summary(FE1)$df[2] - 1)
+sigma2_vare = sum(FE2$residuals^2) / (summary(FE2)$df[2] - 1)
+sigma_v = sigma1 - sigma2
+rho = sigma2_v / (sigma2_v + sigma2_vare)
+
+alpha = 0.05
+kappa = 0.8
+P = 0.5
+MDE = 0.05*mean(data1$kwh)
+J = length(unique(data1$custid))
+T = length(unique(data1$yearmonthid))
+t_a = qt(alpha/2, J, lower.tail=FALSE)
+t_k = qt((1-kappa), J, lower.tail=FALSE)
+
+
+J_hat = (t_a + t_k)^2*sigma2_eps/(P*(1-P)*MDE^2)*(rho + (1-rho)/T)
+J_hat
+
+
+## SIMULATION ==================================================
+simulate <- function(data1, Jlist, Simulations) {
+  df = data.frame()
+  print(paste('START:', Simulations, "simulations for sample sizes", min(Jlist), 'to', max(Jlist)))
+  time_start = Sys.time()
+  for (J in Jlist) {
+    print(paste(format(Sys.time(), "%X"), ': Starting', Simulations, 'simulations for # households =', J))
+    df1 = data.frame()
+    for (s in 1:Simulations){
+      # Generate sample of J households
+      sample_hhs = sample(data1$custid, J, replace=TRUE)
+      # line below doesn't work with duplicate households
+      # sample = data1[data1$custid %in% sample_hhs, ]
+      sample = bind_rows(lapply(sample_hhs, function(i) data1[data1$custid %in% c(i), ]))
+      # add new HH ids in case a HH is repeated
+      sample$id = rep(1:J, each=24)
+      
+      # Randomly treat P proportion of the observations
+      Jtreat = round(P*J)
+      idx = sample(1:J, Jtreat, replace=FALSE)
+      sample$kwh_new = sample$kwh
+      sample[sample$id %in% idx,]$kwh_new = sample[sample$id %in% idx,]$kwh*(1 - 0.05)
+      sample$D = 0
+      sample[sample$id %in% idx,]$D  = 1
+      
+      # Regress
+      reg = summary(lm(asinh(kwh_new) ~ D + factor(yearmonthid), data=sample))
+      
+      # Save p-value of average treatment effect estimate
+      coef = coef(reg)['D', 'Estimate']
+      pval = coef(reg)['D', 'Pr(>|t|)']
+      df2 = data.frame(J=J, coef=coef, pval=pval, reject=(coef < 0 && pval <= 0.05))
+      df1 = rbind(df1, df2)
+      
+    }
+    # Save portion of rejected nulls (p < alpha)
+    portion = mean(df1$reject)
+    print(paste('Portion of simulations that lead to rejecting the null:', portion))
+    df = rbind(df, data.frame(J=J, portion=portion))
+    if (nrow(df) > 1) {
+      # Basic scatter plot
+      print(ggplot(df, aes(x=J, y=portion)) +
+              labs(title=paste('Proportion of', S, 'simulations rejecting the null when sampling from J households')) +
+              geom_line() +
+              xlab('J (number of households in sample') +
+              ylab(paste('Proportion rejecting the null')) +
+              xlim(range(min(Jlist), max(Jlist))))
+    }
+  }
+  print(paste('DONE: Simulation duration:', round((Sys.time() - time_start)/60,2), 'min'))
+}
+
+S0 = 10
+Jlist0 = seq(from=100, to=200, by=10)
+simulate(data1, Jlist0, S0)
+S1 = 100
+Jlist1 = seq(from=100, to=10000, by=100)
+simulate(data1, Jlist1, S1)
+S2 = 1000
+Jlist2 = seq(from=7000, to=8000, by=10)
+simulate(data1, Jlist2, S2)
+S3 = 10000
+Jlist3 = seq(from=7700, to=7900, by=10)
+simulate(data1, Jlist3, S3)
 
 
 ## SIMILATED DATA ====================================
@@ -102,7 +192,6 @@ model0resids = summary(model0)$residuals
 sigma2_w_hat = var(model0resids)
 print(sigma2_w_hat)
 varhat = 1/(nrow(model0resids)-2)
-print(())
 
 # STEP 2.c
 # For each pair of pre-treatment periods... skip since there are no pre-treatment periods
@@ -157,45 +246,10 @@ while (MDEdiff > MDEthreshold)
   print(c("MDEdiff = ", MDEdiff))
 }
 
-
-data1$custid
-
 Model1 <- lm(kwh ~ yearmonthid, data=data1)
 summary(Model1)
 plot(Panel$x1, Panel$y, pch=19, xlab="x1", ylab="y")
 abline(lm(Panel$y~Panel$x1),lwd=3, col="red")
-
-
-
-
-## SIMPLE APPROACH FOR CLUSTERED DATA ==============================
-# Estimate sigma_e (var(epsilon_it))
-sigma2_eps = var(data1$kwh)
-# Estimate sigma_varepsilon (var(varepsilon_it))
-mod1 = lm(kwh ~ factor(custid), data=data1)
-sigma2_vareps = var(mod1$residuals)
-# Estimate simga_v (var(v_i))
-sigma2_v = sigma2_eps - sigma2_vareps
-# Estimate rho
-rho = sigma2_v / (sigma2_v + sigma2_vareps)
-
-alpha = 0.05
-kappa = 0.8
-P = 0.5
-MDE = 50
-J = length(unique(data1$custid))
-T = length(unique(data1$yearmonthid))
-t_a = qt(alpha, J, lower.tail=FALSE)
-t_k = qt(1-kappa, J, lower.tail=FALSE)
-
-
-J_hat = (t_a + t_k)^2*sigma2_eps/(P*(1-P)*MDE^2)*(rho + (1-rho)/T)
-J_hat
-
-MDE_data = (t_a + t_k)/(P*(1-P)*J)^0.5*((rho + (1-rho)/T)*sigma2_eps)^0.5
-MDE_data
-
-MDE_data / mean(data1$kwh)
 
 
 
