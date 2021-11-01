@@ -552,6 +552,7 @@ of 2005 NBP season (constant shift only). The dependent variable is total averag
 1000's of Tons) in the NBP participating states in April and May, 2005. The fitted
 RDD lines use a quadratic time trend, with shared time trend parameters on either
 side of the discontinuity -- only the regression intercept term differs on either side."
+x_ = 1
 ```
 
 ```{r RDD-poly-1, echo=F, warning=F, message=F, fig.height = fig_h, fig.width = fig_w,  fig.cap = text1}
@@ -566,7 +567,7 @@ data.frame(x = reg_poly1$model$x, y = reg_poly1$model$y, y_hat = reg_poly1$fitte
     plot_theme1 + theme(legend.position = c(0.2, 0.15)) +
     annotate("segment", x = 3, y = 4.75, xend = 3, yend = 3,
                   arrow = arrow(length = unit(0.5, "cm"))) + 
-    annotate("text", x = 10, y = 3.75, label = TeX(paste(round(poly1_coef,3)*1000, "tons NO$_{x}$")))
+    annotate("text", x = 10+x_, y = 3.75, label = TeX(paste(round(poly1_coef,3)*1000, "tons NO$_{x}$")))
 ```
 
 
@@ -594,7 +595,7 @@ data.frame(x = reg_poly2$model$x, y = reg_poly2$model$y, y_hat = reg_poly2$fitte
     plot_theme1 + theme(legend.position = c(0.2, 0.85)) +
     annotate("segment", x = 4, y = 3.7, xend = 4, yend =5.9,
                   arrow = arrow(length = unit(0.5, "cm"))) + 
-    annotate("text", x = 10, y = 4.5, label = TeX(paste(round(poly2_coef,3)*1000, "tons NO$_{x}$")))
+    annotate("text", x = 10+x_, y = 4.5, label = TeX(paste(round(poly2_coef,3)*1000, "tons NO$_{x}$")))
 ```
 
 
@@ -624,7 +625,7 @@ data.frame(x = reg_poly3$model$x, y = reg_poly3$model$y, y_hat = reg_poly3$fitte
     plot_theme1 + theme(legend.position = c(0.2, 0.15)) +
     annotate("segment", x = 6, y = 4.5, xend = 6, yend = 2.9,
                   arrow = arrow(length = unit(0.5, "cm"))) + 
-    annotate("text", x = 12, y = 3.5, label = TeX(paste(round(poly3_coef,3)*1000, "tons NO$_{x}$")))
+    annotate("text", x = 12+x_, y = 3.5, label = TeX(paste(round(poly3_coef,3)*1000, "tons NO$_{x}$")))
 ```
 
 
@@ -653,7 +654,7 @@ data.frame(x = reg_poly4$model$x, y = reg_poly4$model$y, y_hat = reg_poly4$fitte
     plot_theme1 + theme(legend.position = c(0.2, 0.85)) +
     annotate("segment", x = 4, y = 3.4, xend = 4, yend = 6,
                   arrow = arrow(length = unit(0.5, "cm"))) + 
-    annotate("text", x = 10, y = 4.5, label = TeX(paste(round(poly4_coef,3)*1000, "tons NO$_{x}$")))
+    annotate("text", x = 10+x_, y = 4.5, label = TeX(paste(round(poly4_coef,3)*1000, "tons NO$_{x}$")))
 ```
 
 
