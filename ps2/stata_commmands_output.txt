@@ -1,0 +1,2783 @@
+cd "C:\Users\aaron.watt\Desktop\are261_ps2"
+import delimited "C:\Users\aaron.watt\Desktop\are261_ps2\davis_data.csv", clear
+
+local covars hhincome hdd bedrooms4 bedrooms5 rental units_mobile units_attached units_2to4 units_5plus
+local dvars d2 d3 d4 d5 d6 d7 d8 d9
+
+asclogit choice expenditure [pweight = hhwt], case(id) alternatives(alternative) casevars(`covars' `dvars') basealternative("Natural Gas") vce(cluster statecode)
+
+estimates store m1, title(Estimated Coefficients)
+predict p
+local alpha1 e(b)[1,1]
+
+gen wtp = -log(p)*1000/abs(`alpha1')
+tabstat wtp if alternative == "Electricity" [weight = hhwt] , by(statecode)
+
+margins , dydx(*) vce(cluster statecode)
+estimates store m2, title(Implied Marginal Effects)
+
+esttab m1 m2...
+
+
+
+
+
+
+
+Alternative-specific conditional logit         Number of obs      =    1900938
+Case ID variable: id                           Number of cases    =     950469
+
+Alternatives variable: alternative             Alts per case: min =          2
+                                                              avg =        2.0
+                                                              max =          2
+
+                                                  Wald chi2(18)   =    2567.07
+Log pseudolikelihood =  -13760494                 Prob > chi2     =     0.0000
+
+                              (Std. err. adjusted for 48 clusters in statecode)
+-------------------------------------------------------------------------------
+              |               Robust
+       choice | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+alternative   |
+  expenditure |  -1.402706   .3060881    -4.58   0.000    -2.002628   -.8027849
+--------------+----------------------------------------------------------------
+Electricity   |
+     hhincome |  -.1798932   .0284617    -6.32   0.000    -.2356772   -.1241093
+          hdd |  -.2062863   .0885064    -2.33   0.020    -.3797557   -.0328169
+    bedrooms4 |  -.4276037   .0448655    -9.53   0.000    -.5155385    -.339669
+    bedrooms5 |  -.6358047   .1062907    -5.98   0.000    -.8441307   -.4274786
+       rental |   .4466321    .049401     9.04   0.000     .3498078    .5434563
+ units_mobile |   1.416082    .170132     8.32   0.000     1.082629    1.749534
+units_attac~d |  -.2774655   .1162307    -2.39   0.017    -.5052734   -.0496576
+   units_2to4 |   .4978176   .0902373     5.52   0.000     .3209557    .6746795
+  units_5plus |   1.091837   .1152893     9.47   0.000      .865874      1.3178
+           d2 |  -.2022901   .2863484    -0.71   0.480    -.7635226    .3589425
+           d3 |  -.4206268   .2516492    -1.67   0.095      -.91385    .0725965
+           d4 |   .0004002    .282732     0.00   0.999    -.5537443    .5545446
+           d5 |   .3073064   .2780256     1.11   0.269    -.2376138    .8522266
+           d6 |   .2222453   .3410443     0.65   0.515    -.4461894    .8906799
+           d7 |   -.211511   .3776062    -0.56   0.575    -.9516055    .5285835
+           d8 |  -1.059689   .3718471    -2.85   0.004    -1.788496   -.3308815
+           d9 |  -.9279833   .4419867    -2.10   0.036    -1.794261   -.0617053
+        _cons |     1.8422   .5303957     3.47   0.001     .8026431    2.881756
+--------------+----------------------------------------------------------------
+Natural_Gas   |  (base alternative)
+-------------------------------------------------------------------------------
+
+
+
+statecode | Mean WTP ($)
+----------+----------
+       AL |   213.992
+       AR |  378.5819
+       AZ |  508.8001
+       CA |  805.8107
+       CO |  1450.999
+       CT |  1271.872
+       DE |  548.3217
+       FL |  120.6111
+       GA |  246.9658
+       IA |   1022.66
+       ID |  1158.358
+       IL |  1343.269
+       IN |  889.5359
+       KS |   607.961
+       KY |  315.8205
+       LA |   242.847
+       MA |  1251.246
+       MD |  531.7048
+       ME |  1405.293
+       MI |  1385.928
+       MN |  1301.498
+       MO |  523.7905
+       MS |  217.8441
+       MT |   1619.72
+       NC |  290.1357
+       ND |  1126.926
+       NE |  779.9941
+       NH |  1567.313
+       NJ |  1193.051
+       NM |  959.5697
+       NV |  764.8844
+       NY |  1325.159
+       OH |  1111.461
+       OK |  389.6698
+       OR |  741.1276
+       PA |  1094.191
+       RI |  1207.173
+       SC |  214.0701
+       SD |  984.2898
+       TN |  303.9536
+       TX |  342.4682
+       UT |  1397.645
+       VA |  412.1254
+       VT |  1564.817
+       WA |  766.9944
+       WI |  1320.368
+       WV |  342.7617
+       WY |  1516.895
+----------+----------
+    Total |  642.1645
+---------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# QUESTION 4
+
+# Predict choice given the calibrated model and the estimated expenditures we're given
+gen choice_hat1 = (p > 0.5)
+gen elec_hat1 = (choice_hat1 == 1 & alternative == "Electricity")
+
+
+# How many of the choices are different than actual choices?
+gen diff = abs(choice - choice_hat1)
+sum diff
+
+# Calcuate the new expenditure based on SMC
+local gas_smc = 9
+local elec_smc = 10
+gen expenditure_old = expenditure
+replace expenditure = expenditure_old / ngprice * `gas_smc' if alternative == "Natural Gas"
+replace expenditure = expenditure_old / elecprice * `elec_smc' if alternative == "Electricity"
+
+# Predict new choice
+estimates restore m1
+predict p2
+gen choice_hat2 = (p2 > 0.5)
+gen elec_hat2 = (choice_hat2 == 1 & alternative == "Electricity")
+sum elec elec_hat1 elec_hat2 if statecode == "CA"
+
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        elec |    156,190    .2893015    .4534396          0          1
+   elec_hat1 |    156,190    .1419425    .3489923          0          1
+   elec_hat2 |    156,190    .3861131    .4868586          0          1
+
+
+
+
+# Check if expenditures are lower in CA now (since we've lowered the price)
+. gen expenditure_diff = expenditure - expenditure_old
+. sum expenditure_diff if statecode =="CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+expenditur~f |    156,190    -.253482    .1922828  -.5803068  -.0199492
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CONSOLE DUMP
+
+
+
+
+
+==================================================================================
+
+
+  ___  ____  ____  ____  ____ ©
+ /__    /   ____/   /   ____/      17.0
+___/   /   /___/   /   /___/       MP—Parallel Edition
+
+ Statistics and Data Science       Copyright 1985-2021 StataCorp LLC
+                                   StataCorp
+                                   4905 Lakeway Drive
+                                   College Station, Texas 77845 USA
+                                   800-STATA-PC        https://www.stata.com
+                                   979-696-4600        stata@stata.com
+
+Stata license: Single-user 4-core  perpetual
+Serial number: 501706305668
+  Licensed to: Gary Casterline
+               UC Berkeley ARE
+
+Notes:
+      1. Unicode is supported; see help unicode_advice.
+      2. More than 2 billion observations are allowed; see help obs_advice.
+      3. Maximum number of variables is set to 5,000; see help set_maxvar.
+      4. New update available; type -update all-
+
+Running C:\Program Files\Stata17\profile.do ...
+
+. cd "C:\Users\aaron.watt\Desktop\are261_ps2"
+C:\Users\aaron.watt\Desktop\are261_ps2
+
+. 
+. import delimited "C:\Users\aaron.watt\Desktop\are261_ps2\davis_data.csv", clear
+(encoding automatically selected: ISO-8859-1)
+(49 vars, 1,900,938 obs)
+
+. 
+. 
+. 
+. local covars hhincome hdd bedrooms4 bedrooms5 rental units_mobile units_attached units_2to4 
+
+. 
+. 
+. 
+. units_5plus
+command units_5plus is unrecognized
+r(199);
+
+. 
+. local dvars d2 d3 d4 d5 d6 d7 d8 d9
+
+. 
+. 
+. 
+. asclogit choice expenditure [pweight = hhwt], case(id) alternatives(alternative) casevars
+option casevars not allowed
+r(198);
+
+. 
+. 
+. 
+. (`covars' `dvars') basealternative("Natural Gas") vce(cluster statecode)
+( is not a valid command name
+r(199);
+
+. 
+. 
+. 
+. estimates store m1, title(Estimated Coefficients)
+last estimation results not found, nothing to store
+r(301);
+
+. 
+. predict p
+last estimates not found
+r(301);
+
+. 
+. local alpha1 e(b)[1,1]
+
+. 
+. 
+. 
+. gen wtp = -log(p)*1000/abs(`alpha1')
+p not found
+r(111);
+
+. 
+. tabstat wtp if alternative == "Electricity" [weight = hhwt] , by(statecode)
+variable wtp not found
+r(111);
+
+. asclogit choice expenditure [pweight = hhwt], case(id) alternatives(alternative) casevars(`covars' `dvars') basealternative("Natural Gas") vce(cluster statecode)
+--Break--
+r(1);
+
+. 
+. 
+. 
+. estimates store m1, title(Estimated Coefficients)
+last estimation results not found, nothing to store
+r(301);
+
+. 
+. predict p
+last estimates not found
+r(301);
+
+. 
+. local alpha1 e(b)[1,1]
+
+. 
+. 
+. 
+. gen wtp = -log(p)*1000/abs(`alpha1')
+p not found
+r(111);
+
+. 
+. tabstat wtp if alternative == "Electricity" [weight = hhwt] , by(statecode)
+variable wtp not found
+r(111);
+
+. local covars hhincome hdd bedrooms4 bedrooms5 rental units_mobile units_attached units_2to4 units_5plus
+
+. 
+. local dvars d2 d3 d4 d5 d6 d7 d8 d9
+
+. asclogit choice expenditure [pweight = hhwt], case(id) alternatives(alternative) casevars(`covar
+> s' `dvars') basealternative("Natural Gas") vce(cluster statecode)
+
+Iteration 0:   log pseudolikelihood =  -13996968  
+Iteration 1:   log pseudolikelihood =  -13762377  
+Iteration 2:   log pseudolikelihood =  -13760494  
+Iteration 3:   log pseudolikelihood =  -13760494  
+
+Alternative-specific conditional logit         Number of obs      =    1900938
+Case ID variable: id                           Number of cases    =     950469
+
+Alternatives variable: alternative             Alts per case: min =          2
+                                                              avg =        2.0
+                                                              max =          2
+
+                                                  Wald chi2(18)   =    2567.07
+Log pseudolikelihood =  -13760494                 Prob > chi2     =     0.0000
+
+                               (Std. err. adjusted for 48 clusters in statecode)
+--------------------------------------------------------------------------------
+               |               Robust
+        choice | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+---------------+----------------------------------------------------------------
+alternative    |
+   expenditure |  -1.402706   .3060881    -4.58   0.000    -2.002628   -.8027849
+---------------+----------------------------------------------------------------
+Electricity    |
+      hhincome |  -.1798932   .0284617    -6.32   0.000    -.2356772   -.1241093
+           hdd |  -.2062863   .0885064    -2.33   0.020    -.3797557   -.0328169
+     bedrooms4 |  -.4276037   .0448655    -9.53   0.000    -.5155385    -.339669
+     bedrooms5 |  -.6358047   .1062907    -5.98   0.000    -.8441307   -.4274786
+        rental |   .4466321    .049401     9.04   0.000     .3498078    .5434563
+  units_mobile |   1.416082    .170132     8.32   0.000     1.082629    1.749534
+units_attached |  -.2774655   .1162307    -2.39   0.017    -.5052734   -.0496576
+    units_2to4 |   .4978176   .0902373     5.52   0.000     .3209557    .6746795
+   units_5plus |   1.091837   .1152893     9.47   0.000      .865874      1.3178
+            d2 |  -.2022901   .2863484    -0.71   0.480    -.7635226    .3589425
+            d3 |  -.4206268   .2516492    -1.67   0.095      -.91385    .0725965
+            d4 |   .0004002    .282732     0.00   0.999    -.5537443    .5545446
+            d5 |   .3073064   .2780256     1.11   0.269    -.2376138    .8522266
+            d6 |   .2222453   .3410443     0.65   0.515    -.4461894    .8906799
+            d7 |   -.211511   .3776062    -0.56   0.575    -.9516055    .5285835
+            d8 |  -1.059689   .3718471    -2.85   0.004    -1.788496   -.3308815
+            d9 |  -.9279833   .4419867    -2.10   0.036    -1.794261   -.0617053
+         _cons |     1.8422   .5303957     3.47   0.001     .8026431    2.881756
+---------------+----------------------------------------------------------------
+Natural_Gas    |  (base alternative)
+--------------------------------------------------------------------------------
+
+. 
+. 
+. 
+. estimates store m1, title(Estimated Coefficients)
+
+. 
+. predict p
+(option pr assumed; Pr(alternative))
+
+. 
+. local alpha1 e(b)[1,1]
+
+. 
+. 
+. 
+. gen wtp = -log(p)*1000/abs(`alpha1')
+
+. 
+. tabstat wtp if alternative == "Electricity" [weight = hhwt] , by(statecode)
+(analytic weights assumed)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |   213.992
+       AR |  378.5819
+       AZ |  508.8001
+       CA |  805.8107
+       CO |  1450.999
+       CT |  1271.872
+       DE |  548.3217
+       FL |  120.6111
+       GA |  246.9658
+       IA |   1022.66
+       ID |  1158.358
+       IL |  1343.269
+       IN |  889.5359
+       KS |   607.961
+       KY |  315.8205
+       LA |   242.847
+       MA |  1251.246
+       MD |  531.7048
+       ME |  1405.293
+       MI |  1385.928
+       MN |  1301.498
+       MO |  523.7905
+       MS |  217.8441
+       MT |   1619.72
+       NC |  290.1357
+       ND |  1126.926
+       NE |  779.9941
+       NH |  1567.313
+       NJ |  1193.051
+       NM |  959.5697
+       NV |  764.8844
+       NY |  1325.159
+       OH |  1111.461
+       OK |  389.6698
+       OR |  741.1276
+       PA |  1094.191
+       RI |  1207.173
+       SC |  214.0701
+       SD |  984.2898
+       TN |  303.9536
+       TX |  342.4682
+       UT |  1397.645
+       VA |  412.1254
+       VT |  1564.817
+       WA |  766.9944
+       WI |  1320.368
+       WV |  342.7617
+       WY |  1516.895
+----------+----------
+    Total |  642.1645
+---------------------
+
+. 
+
+
+
+
+
+
+
+  ___  ____  ____  ____  ____ ©
+ /__    /   ____/   /   ____/      17.0
+___/   /   /___/   /   /___/       MP—Parallel Edition
+
+ Statistics and Data Science       Copyright 1985-2021 StataCorp LLC
+                                   StataCorp
+                                   4905 Lakeway Drive
+                                   College Station, Texas 77845 USA
+                                   800-STATA-PC        https://www.stata.com
+                                   979-696-4600        stata@stata.com
+
+Stata license: Single-user 4-core  perpetual
+Serial number: 501706305668
+  Licensed to: Gary Casterline
+               UC Berkeley ARE
+
+Notes:
+      1. Unicode is supported; see help unicode_advice.
+      2. More than 2 billion observations are allowed; see help obs_advice.
+      3. Maximum number of variables is set to 5,000; see help set_maxvar.
+      4. New update available; type -update all-
+
+Running C:\Program Files\Stata17\profile.do ...
+
+. cd "C:\Users\aaron.watt\Desktop\are261_ps2"
+C:\Users\aaron.watt\Desktop\are261_ps2
+
+. 
+. import delimited "C:\Users\aaron.watt\Desktop\are261_ps2\davis_data.csv", clea
+> r
+(encoding automatically selected: ISO-8859-1)
+(49 vars, 1,900,938 obs)
+
+. local covars hhincome hdd bedrooms4 bedrooms5 rental units_mobile units_attach
+> ed units_2to4 units_5plus
+
+. 
+. local dvars d2 d3 d4 d5 d6 d7 d8 d9
+
+. 
+. asclogit choice expenditure [pweight = hhwt], case(id) alternatives(alternativ
+> e) casevars(`covars' `dvars') basealternative("Natural Gas") vce(cluster state
+> code)
+
+Iteration 0:   log pseudolikelihood =  -13996968  
+Iteration 1:   log pseudolikelihood =  -13762377  
+Iteration 2:   log pseudolikelihood =  -13760494  
+Iteration 3:   log pseudolikelihood =  -13760494  
+
+Alternative-specific conditional logit         Number of obs      =    1900938
+Case ID variable: id                           Number of cases    =     950469
+
+Alternatives variable: alternative             Alts per case: min =          2
+                                                              avg =        2.0
+                                                              max =          2
+
+                                                  Wald chi2(18)   =    2567.07
+Log pseudolikelihood =  -13760494                 Prob > chi2     =     0.0000
+
+                              (Std. err. adjusted for 48 clusters in statecode)
+-------------------------------------------------------------------------------
+              |               Robust
+       choice | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+alternative   |
+  expenditure |  -1.402706   .3060881    -4.58   0.000    -2.002628   -.8027849
+--------------+----------------------------------------------------------------
+Electricity   |
+     hhincome |  -.1798932   .0284617    -6.32   0.000    -.2356772   -.1241093
+          hdd |  -.2062863   .0885064    -2.33   0.020    -.3797557   -.0328169
+    bedrooms4 |  -.4276037   .0448655    -9.53   0.000    -.5155385    -.339669
+    bedrooms5 |  -.6358047   .1062907    -5.98   0.000    -.8441307   -.4274786
+       rental |   .4466321    .049401     9.04   0.000     .3498078    .5434563
+ units_mobile |   1.416082    .170132     8.32   0.000     1.082629    1.749534
+units_attac~d |  -.2774655   .1162307    -2.39   0.017    -.5052734   -.0496576
+   units_2to4 |   .4978176   .0902373     5.52   0.000     .3209557    .6746795
+  units_5plus |   1.091837   .1152893     9.47   0.000      .865874      1.3178
+           d2 |  -.2022901   .2863484    -0.71   0.480    -.7635226    .3589425
+           d3 |  -.4206268   .2516492    -1.67   0.095      -.91385    .0725965
+           d4 |   .0004002    .282732     0.00   0.999    -.5537443    .5545446
+           d5 |   .3073064   .2780256     1.11   0.269    -.2376138    .8522266
+           d6 |   .2222453   .3410443     0.65   0.515    -.4461894    .8906799
+           d7 |   -.211511   .3776062    -0.56   0.575    -.9516055    .5285835
+           d8 |  -1.059689   .3718471    -2.85   0.004    -1.788496   -.3308815
+           d9 |  -.9279833   .4419867    -2.10   0.036    -1.794261   -.0617053
+        _cons |     1.8422   .5303957     3.47   0.001     .8026431    2.881756
+--------------+----------------------------------------------------------------
+Natural_Gas   |  (base alternative)
+-------------------------------------------------------------------------------
+
+. 
+. estimates store m1, title(Estimated Coefficients)
+
+. predict p
+(option pr assumed; Pr(alternative))
+
+. b
+command b is unrecognized
+r(199);
+
+. b[]
+command b is unrecognized
+r(199);
+
+. e(b
+too few ')' or ']'
+r(132);
+
+. e(b)
+b ambiguous abbreviation
+r(111);
+
+. mat e(b)
+matrix operation not found
+r(501);
+
+. di e(b)
+type mismatch
+r(109);
+
+. di mat e(b)
+mat not found
+r(111);
+
+. mat list e(b)
+
+e(b)[1,19]
+     alternative:  Electricity:  Electricity:  Electricity:  Electricity:
+     expenditure      hhincome           hdd     bedrooms4     bedrooms5
+y1    -1.4027065    -.17989323    -.20628627    -.42760373    -.63580466
+
+     Electricity:  Electricity:  Electricity:  Electricity:  Electricity:
+          rental  units_mobile  units_atta~d    units_2to4   units_5plus
+y1     .44663207     1.4160817    -.27746546     .49781758     1.0918368
+
+     Electricity:  Electricity:  Electricity:  Electricity:  Electricity:
+              d2            d3            d4            d5            d6
+y1    -.20229007    -.42062677     .00040018      .3073064     .22224526
+
+     Electricity:  Electricity:  Electricity:  Electricity:
+              d7            d8            d9         _cons
+y1    -.21151102    -1.0596885    -.92798333     1.8421996
+
+. local alpha1 e(b)[1,1]
+
+. di `alpha1'
+-1.4027065
+
+. gen wtp = -p/`alpha1'
+
+. hist wtp
+(bin=62, start=.00096447, width=.0114674)
+
+. tabstat wtp, by(statecode)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  .3564538
+       AR |  .3564538
+       AZ |  .3564538
+       CA |  .3564538
+       CO |  .3564538
+       CT |  .3564538
+       DE |  .3564538
+       FL |  .3564538
+       GA |  .3564538
+       IA |  .3564538
+       ID |  .3564538
+       IL |  .3564538
+       IN |  .3564538
+       KS |  .3564538
+       KY |  .3564538
+       LA |  .3564538
+       MA |  .3564538
+       MD |  .3564538
+       ME |  .3564538
+       MI |  .3564538
+       MN |  .3564538
+       MO |  .3564538
+       MS |  .3564538
+       MT |  .3564538
+       NC |  .3564538
+       ND |  .3564538
+       NE |  .3564538
+       NH |  .3564538
+       NJ |  .3564538
+       NM |  .3564538
+       NV |  .3564538
+       NY |  .3564538
+       OH |  .3564538
+       OK |  .3564538
+       OR |  .3564538
+       PA |  .3564538
+       RI |  .3564538
+       SC |  .3564538
+       SD |  .3564538
+       TN |  .3564538
+       TX |  .3564538
+       UT |  .3564538
+       VA |  .3564538
+       VT |  .3564538
+       WA |  .3564538
+       WI |  .3564538
+       WV |  .3564538
+       WY |  .3564538
+----------+----------
+    Total |  .3564538
+---------------------
+
+. tabstat expenditure , by(statecode)
+
+Summary for variables: expenditure
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  .7016937
+       AR |  .7074028
+       AZ |  .4832633
+       CA |  .6702346
+       CO |  .8643253
+       CT |  1.925751
+       DE |  1.094759
+       FL |  .5843637
+       GA |  .7273952
+       IA |  1.258111
+       ID |  .8086894
+       IL |  1.213685
+       IN |  1.063763
+       KS |  .8859181
+       KY |  .7425303
+       LA |   .541545
+       MA |  1.799361
+       MD |  1.019244
+       ME |  2.012982
+       MI |  1.239395
+       MN |  1.283525
+       MO |  .8613228
+       MS |  .6216003
+       MT |  1.024754
+       NC |  .8526632
+       ND |  1.255094
+       NE |  1.033937
+       NH |  1.865407
+       NJ |  1.300502
+       NM |  .7137071
+       NV |  .6754284
+       NY |  1.659276
+       OH |  1.222441
+       OK |  .6068921
+       OR |  .8119231
+       PA |  1.333973
+       RI |  1.776641
+       SC |  .7148095
+       SD |  1.187865
+       TN |  .7695916
+       TX |    .61215
+       UT |   .782472
+       VA |  .9499183
+       VT |  1.861429
+       WA |  .7422451
+       WI |  1.377018
+       WV |  .9086436
+       WY |  1.021237
+----------+----------
+    Total |  .8416196
+---------------------
+
+. sum(wtp_
+variable wtp_ not found
+r(111);
+
+. sum(wtp)
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |  1,900,938    .3564538    .1904047   .0009645   .7119431
+
+. list wtp choice in 1/10
+
+     +-------------------+
+     |      wtp   choice |
+     |-------------------|
+  1. | .4850747        1 |
+  2. | .2278328        0 |
+  3. | .0377396        0 |
+  4. | .6751679        1 |
+  5. | .6885835        1 |
+     |-------------------|
+  6. |  .024324        0 |
+  7. |  .493127        1 |
+  8. | .2197806        0 |
+  9. | .0973884        0 |
+ 10. | .6155191        1 |
+     +-------------------+
+
+. list wtp choice alternative in 1/10
+
+     +---------------------------------+
+     |      wtp   choice   alternative |
+     |---------------------------------|
+  1. | .4850747        1   Electricity |
+  2. | .2278328        0   Natural Gas |
+  3. | .0377396        0   Electricity |
+  4. | .6751679        1   Natural Gas |
+  5. | .6885835        1   Electricity |
+     |---------------------------------|
+  6. |  .024324        0   Natural Gas |
+  7. |  .493127        1   Electricity |
+  8. | .2197806        0   Natural Gas |
+  9. | .0973884        0   Electricity |
+ 10. | .6155191        1   Natural Gas |
+     +---------------------------------+
+
+. list wtp choice alternative id in 1/10
+
+     +--------------------------------------+
+     |      wtp   choice   alternative   id |
+     |--------------------------------------|
+  1. | .4850747        1   Electricity    1 |
+  2. | .2278328        0   Natural Gas    1 |
+  3. | .0377396        0   Electricity    2 |
+  4. | .6751679        1   Natural Gas    2 |
+  5. | .6885835        1   Electricity    3 |
+     |--------------------------------------|
+  6. |  .024324        0   Natural Gas    3 |
+  7. |  .493127        1   Electricity    4 |
+  8. | .2197806        0   Natural Gas    4 |
+  9. | .0973884        0   Electricity    5 |
+ 10. | .6155191        1   Natural Gas    5 |
+     +--------------------------------------+
+
+. sum(p_
+variable p_ not found
+r(111);
+
+. sum(p)
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+           p |  1,900,938          .5    .2670818   .0013529   .9986472
+
+. hist p
+(bin=62, start=.00135287, width=.01608539)
+
+. hist(p) if choice = 1
+invalid syntax
+r(198);
+
+. hist(p) if choice == 1
+(bin=59, start=.00514987, width=.01683894)
+
+. hist(wtp) if choice == 1
+(bin=59, start=.00367138, width=.01200461)
+
+. tabstat p, by(statecode )
+
+Summary for variables: p
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |        .5
+       AR |        .5
+       AZ |        .5
+       CA |        .5
+       CO |        .5
+       CT |        .5
+       DE |        .5
+       FL |        .5
+       GA |        .5
+       IA |        .5
+       ID |        .5
+       IL |        .5
+       IN |        .5
+       KS |        .5
+       KY |        .5
+       LA |        .5
+       MA |        .5
+       MD |        .5
+       ME |        .5
+       MI |        .5
+       MN |        .5
+       MO |        .5
+       MS |        .5
+       MT |        .5
+       NC |        .5
+       ND |        .5
+       NE |        .5
+       NH |        .5
+       NJ |        .5
+       NM |        .5
+       NV |        .5
+       NY |        .5
+       OH |        .5
+       OK |        .5
+       OR |        .5
+       PA |        .5
+       RI |        .5
+       SC |        .5
+       SD |        .5
+       TN |        .5
+       TX |        .5
+       UT |        .5
+       VA |        .5
+       VT |        .5
+       WA |        .5
+       WI |        .5
+       WV |        .5
+       WY |        .5
+----------+----------
+    Total |        .5
+---------------------
+
+. mean p wtp, over(statecode)
+string variables not allowed in varlist;
+statecode is a string variable
+invalid over() option
+r(109);
+
+. mean p wtp, over(statecode)
+string variables not allowed in varlist;
+statecode is a string variable
+invalid over() option
+r(109);
+
+. cmset id alternative
+
+     Case ID variable: id
+Alternatives variable: alternative
+
+. cmset id alternative
+
+     Case ID variable: id
+Alternatives variable: alternative
+
+. cmclogit choice expenditure [pweight = hhwt], casevars(hhincome hdd bedrooms4 
+> bedrooms5 rental rental units_mobile units_attached units_2to4 units_5plus) ba
+> sealternative("Natural Gas") vce(cluster statecode)
+note: rental omitted because of collinearity.
+
+Iteration 0:   log pseudolikelihood =  -14600077  
+Iteration 1:   log pseudolikelihood =  -14302600  
+Iteration 2:   log pseudolikelihood =  -14300260  
+Iteration 3:   log pseudolikelihood =  -14300260  
+
+Conditional logit choice model                 Number of obs      =    1900938
+Case ID variable: id                           Number of cases    =     950469
+
+Alternatives variable: alternative             Alts per case: min =          2
+                                                              avg =        2.0
+                                                              max =          2
+
+                                                  Wald chi2(10)   =     411.85
+Log pseudolikelihood =  -14300260                 Prob > chi2     =     0.0000
+
+                              (Std. err. adjusted for 48 clusters in statecode)
+-------------------------------------------------------------------------------
+              |               Robust
+       choice | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+--------------+----------------------------------------------------------------
+alternative   |
+  expenditure |  -1.388455   .3333394    -4.17   0.000    -2.041789    -.735122
+--------------+----------------------------------------------------------------
+Electricity   |
+     hhincome |  -.1860957   .0251363    -7.40   0.000     -.235362   -.1368295
+          hdd |  -.2639821   .0878245    -3.01   0.003    -.4361151   -.0918492
+    bedrooms4 |  -.4146926     .04511    -9.19   0.000    -.5031065   -.3262787
+    bedrooms5 |  -.6231582   .0872937    -7.14   0.000    -.7942507   -.4520656
+       rental |   .3399733   .0767439     4.43   0.000     .1895581    .4903886
+       rental |          0  (omitted)
+ units_mobile |   1.489471   .1599004     9.31   0.000     1.176072     1.80287
+units_attac~d |  -.1597574   .1160925    -1.38   0.169    -.3872945    .0677797
+   units_2to4 |   .5198496   .0974655     5.33   0.000     .3288208    .7108784
+  units_5plus |   1.107688   .1207457     9.17   0.000     .8710311    1.344346
+        _cons |   1.825091    .350745     5.20   0.000     1.137644    2.512539
+--------------+----------------------------------------------------------------
+Natural_Gas   |  (base alternative)
+-------------------------------------------------------------------------------
+
+. estimates restore m1
+(results m1 are active now)
+
+. matrix list e(b)
+
+e(b)[1,19]
+     alternative:  Electricity:  Electricity:  Electricity:  Electricity:
+     expenditure      hhincome           hdd     bedrooms4     bedrooms5
+y1    -1.4027065    -.17989323    -.20628627    -.42760373    -.63580466
+
+     Electricity:  Electricity:  Electricity:  Electricity:  Electricity:
+          rental  units_mobile  units_atta~d    units_2to4   units_5plus
+y1     .44663207     1.4160817    -.27746546     .49781758     1.0918368
+
+     Electricity:  Electricity:  Electricity:  Electricity:  Electricity:
+              d2            d3            d4            d5            d6
+y1    -.20229007    -.42062677     .00040018      .3073064     .22224526
+
+     Electricity:  Electricity:  Electricity:  Electricity:
+              d7            d8            d9         _cons
+y1    -.21151102    -1.0596885    -.92798333     1.8421996
+
+. di `alpha1'
+-1.4027065
+
+. gen wtp = -log(p)/`alpha1'
+variable wtp already defined
+r(110);
+
+. replace wtp = -log(p)/`alpha1'
+(1,900,938 real changes made)
+
+. hist(p) if choice = 1
+invalid syntax
+r(198);
+
+. hist(wtp) if choice == 1
+(bin=59, start=-3.756155, width=.06364729)
+
+. replace wtp = -log(p)/abs(`alpha1')
+(1,900,938 real changes made)
+
+. hist(wtp) if choice == 1
+(bin=59, start=.00096511, width=.06364729)
+
+. tabstat expenditure , by(statecode)
+
+Summary for variables: expenditure
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  .7016937
+       AR |  .7074028
+       AZ |  .4832633
+       CA |  .6702346
+       CO |  .8643253
+       CT |  1.925751
+       DE |  1.094759
+       FL |  .5843637
+       GA |  .7273952
+       IA |  1.258111
+       ID |  .8086894
+       IL |  1.213685
+       IN |  1.063763
+       KS |  .8859181
+       KY |  .7425303
+       LA |   .541545
+       MA |  1.799361
+       MD |  1.019244
+       ME |  2.012982
+       MI |  1.239395
+       MN |  1.283525
+       MO |  .8613228
+       MS |  .6216003
+       MT |  1.024754
+       NC |  .8526632
+       ND |  1.255094
+       NE |  1.033937
+       NH |  1.865407
+       NJ |  1.300502
+       NM |  .7137071
+       NV |  .6754284
+       NY |  1.659276
+       OH |  1.222441
+       OK |  .6068921
+       OR |  .8119231
+       PA |  1.333973
+       RI |  1.776641
+       SC |  .7148095
+       SD |  1.187865
+       TN |  .7695916
+       TX |    .61215
+       UT |   .782472
+       VA |  .9499183
+       VT |  1.861429
+       WA |  .7422451
+       WI |  1.377018
+       WV |  .9086436
+       WY |  1.021237
+----------+----------
+    Total |  .8416196
+---------------------
+
+. tabstat wtp , by(statecode)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  .6619751
+       AR |  .5739107
+       AZ |  .5408968
+       CA |  .5932566
+       CO |  .7993312
+       CT |  .7538834
+       DE |  .5428739
+       FL |  .8075848
+       GA |   .643987
+       IA |  .6434714
+       ID |  .6807781
+       IL |  .7198866
+       IN |  .5949287
+       KS |  .5604895
+       KY |  .5941132
+       LA |  .6488027
+       MA |  .7123084
+       MD |  .5696512
+       ME |  .7789543
+       MI |   .763668
+       MN |  .7339172
+       MO |  .5530457
+       MS |  .6511889
+       MT |  .8774691
+       NC |  .6067705
+       ND |  .7114374
+       NE |  .5817814
+       NH |  .8405369
+       NJ |  .6845559
+       NM |   .611891
+       NV |  .5714867
+       NY |  .7343796
+       OH |  .6558674
+       OK |  .5681001
+       OR |  .5732635
+       PA |  .6465267
+       RI |  .7034803
+       SC |   .652716
+       SD |  .6436469
+       TN |  .5926965
+       TX |  .5827779
+       UT |  .7805345
+       VA |  .5772094
+       VT |  .8907985
+       WA |  .5827481
+       WI |  .7651404
+       WV |  .5941168
+       WY |  .8415263
+----------+----------
+    Total |  .6462792
+---------------------
+
+. tabstat wtp , by(statecode) if alternative == "Natural Gas"
+option if not allowed
+r(198);
+
+. tabstat wtp if alternative == "Natural Gas" , by(statecode)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  1.108718
+       AR |  .7803692
+       AZ |  .5775037
+       CA |  .3696796
+       CO |  .1358625
+       CT |  .1882438
+       DE |  .5309862
+       FL |  1.494401
+       GA |  1.044869
+       IA |  .2601033
+       ID |   .196526
+       IL |  .2046695
+       IN |   .317295
+       KS |   .522564
+       KY |  .8705969
+       LA |  1.056842
+       MA |  .2043848
+       MD |  .6209325
+       ME |  .1465023
+       MI |  .1597007
+       MN |  .1748613
+       MO |  .6112685
+       MS |  1.074412
+       MT |  .0989518
+       NC |  .9179396
+       ND |  .2094729
+       NE |  .3614741
+       NH |  .1285022
+       NJ |  .2301463
+       NM |  .2803817
+       NV |  .3487315
+       NY |  .1773956
+       OH |  .2461603
+       OK |  .7532321
+       OR |  .3764024
+       PA |   .262826
+       RI |  .2194523
+       SC |   1.08118
+       SD |  .2658542
+       TN |  .8737677
+       TX |  .8070963
+       UT |   .136692
+       VA |  .7493151
+       VT |  .1059519
+       WA |  .3644995
+       WI |  .1510597
+       WV |  .8447214
+       WY |  .1174598
+----------+----------
+    Total |  .6644025
+---------------------
+
+. tabstat wtp if choice==1 , by(statecode)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  .3460132
+       AR |  .4111501
+       AZ |  .4667313
+       CA |  .4121543
+       CO |  .3482117
+       CT |  .3713043
+       DE |  .4855352
+       FL |  .2072797
+       GA |  .4374086
+       IA |  .4381256
+       ID |  .3867275
+       IL |   .323882
+       IN |  .4589767
+       KS |  .4410839
+       KY |  .3958421
+       LA |  .3432078
+       MA |  .3123728
+       MD |   .499406
+       ME |  .7370143
+       MI |  .2569131
+       MN |  .4189958
+       MO |  .4329334
+       MS |  .4009602
+       MT |  .5195206
+       NC |  .3904132
+       ND |  .5832318
+       NE |  .4836733
+       NH |  .3397921
+       NJ |  .2865768
+       NM |  .3734298
+       NV |  .3860671
+       NY |  .3532219
+       OH |  .3955381
+       OK |  .4386519
+       OR |  .4301881
+       PA |  .4597992
+       RI |  .2840364
+       SC |  .3693853
+       SD |  .4611991
+       TN |  .4081187
+       TX |  .4019488
+       UT |  .2535846
+       VA |  .4571976
+       VT |  .3268044
+       WA |  .4529989
+       WI |  .3194935
+       WV |  .4394257
+       WY |  .4778433
+----------+----------
+    Total |  .3816968
+---------------------
+
+. tabstat wtp*1000 if choice==1 , by(statecode)
+variable wtp*1000 not found
+r(111);
+
+. replace wtp = -log(p)*1000/abs(`alpha1')
+(1,900,938 real changes made)
+
+. tabstat wtp if choice==1 , by(statecode)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  346.0132
+       AR |  411.1501
+       AZ |  466.7313
+       CA |  412.1543
+       CO |  348.2117
+       CT |  371.3043
+       DE |  485.5352
+       FL |  207.2797
+       GA |  437.4086
+       IA |  438.1256
+       ID |  386.7275
+       IL |   323.882
+       IN |  458.9767
+       KS |  441.0839
+       KY |  395.8421
+       LA |  343.2078
+       MA |  312.3728
+       MD |   499.406
+       ME |  737.0143
+       MI |  256.9131
+       MN |  418.9958
+       MO |  432.9334
+       MS |  400.9602
+       MT |  519.5206
+       NC |  390.4132
+       ND |  583.2318
+       NE |  483.6733
+       NH |  339.7921
+       NJ |  286.5768
+       NM |  373.4298
+       NV |  386.0671
+       NY |  353.2219
+       OH |  395.5381
+       OK |  438.6519
+       OR |  430.1881
+       PA |  459.7992
+       RI |  284.0364
+       SC |  369.3853
+       SD |  461.1991
+       TN |  408.1187
+       TX |  401.9488
+       UT |  253.5846
+       VA |  457.1976
+       VT |  326.8044
+       WA |  452.9989
+       WI |  319.4935
+       WV |  439.4257
+       WY |  477.8433
+----------+----------
+    Total |  381.6968
+---------------------
+
+. tabstat wtp if choice==1 , by(statecode)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  346.0132
+       AR |  411.1501
+       AZ |  466.7313
+       CA |  412.1543
+       CO |  348.2117
+       CT |  371.3043
+       DE |  485.5352
+       FL |  207.2797
+       GA |  437.4086
+       IA |  438.1256
+       ID |  386.7275
+       IL |   323.882
+       IN |  458.9767
+       KS |  441.0839
+       KY |  395.8421
+       LA |  343.2078
+       MA |  312.3728
+       MD |   499.406
+       ME |  737.0143
+       MI |  256.9131
+       MN |  418.9958
+       MO |  432.9334
+       MS |  400.9602
+       MT |  519.5206
+       NC |  390.4132
+       ND |  583.2318
+       NE |  483.6733
+       NH |  339.7921
+       NJ |  286.5768
+       NM |  373.4298
+       NV |  386.0671
+       NY |  353.2219
+       OH |  395.5381
+       OK |  438.6519
+       OR |  430.1881
+       PA |  459.7992
+       RI |  284.0364
+       SC |  369.3853
+       SD |  461.1991
+       TN |  408.1187
+       TX |  401.9488
+       UT |  253.5846
+       VA |  457.1976
+       VT |  326.8044
+       WA |  452.9989
+       WI |  319.4935
+       WV |  439.4257
+       WY |  477.8433
+----------+----------
+    Total |  381.6968
+---------------------
+
+. hist(wtp) if choice == 1
+(bin=59, start=.9651075, width=63.647287)
+
+. hist(wtp) if choice == 1 & statecode == "CA"
+(bin=48, start=3.13186, width=66.38622)
+
+. su wpt if choice ==1 & statecode == "CA"
+variable wpt not found
+r(111);
+
+. su wtp if choice ==1 & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |     78,095    412.1543    322.1495    3.13186    3189.67
+
+. local ca_mean = `r(mean)'
+
+. di `ca_mean'
+412.15432
+
+. hist(wtp) if choice == 1 & statecode == "CA", xline(`ca_mean')
+(bin=48, start=3.13186, width=66.38622)
+
+. su wtp if choice ==0 & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |     78,095    774.3588    388.3425   8.173599   3871.031
+
+. local ca_mean = `r(mean)'
+
+. hist(wtp) if choice == 0 & statecode == "CA", xline(`ca_mean')
+(bin=48, start=8.1735992, width=80.476201)
+
+. di `ca_mean'
+774.35884
+
+. su wtp if alternative == "Natural Gas" & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |     78,095    369.6796    265.6217    3.13186   1167.529
+
+. su wtp if alternative == "Electricty" & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |          0
+
+. su wtp if alternative == "Electricity" & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |     78,095    816.8336     386.856   154.1314   3871.031
+
+. su wtp if choice ==0 & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |     78,095    774.3588    388.3425   8.173599   3871.031
+
+. su wtp if choice ==1 & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |     78,095    412.1543    322.1495    3.13186    3189.67
+
+. su wtp if elec == 1 & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |     45,186    570.0971    347.5499   8.173599    3189.67
+
+. su wtp if elec == 0 & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |    111,004     602.684    419.2671    3.13186   3871.031
+
+. su hhwt
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        hhwt |  1,900,938    27.43893    30.48932         .4      565.6
+
+. local ca_denom = sum(hhwt) if statecode =="CA"
+if not allowed
+r(101);
+
+. su hhwt if statecode =="CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        hhwt |    156,190    28.05595    31.79894         .6      454.4
+
+. su hhwt if statecode =="CA", sum
+option sum not allowed
+r(198);
+
+. su wtp if alternative == "Electricity" & statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+         wtp |     78,095    816.8336     386.856   154.1314   3871.031
+
+. su wtp if alternative == "Electricity" & statecode == "CA" [pweight = hhwt]
+pweights not allowed
+r(101);
+
+. su wtp if alternative == "Electricity" & statecode == "CA" [iweight = hhwt]
+
+    Variable |     Obs      Weight        Mean   Std. dev.       Min        Max
+-------------+-----------------------------------------------------------------
+         wtp |  78,095   2191029.4    805.8107   388.2945   154.1314   3871.031
+
+. su wtp if alternative == "Electricity" & statecode == "OR" [iweight = hhwt]
+
+    Variable |     Obs      Weight        Mean   Std. dev.       Min        Max
+-------------+-----------------------------------------------------------------
+         wtp |  14,008    401619.6    741.1276   344.6159   159.1913   2699.983
+
+. tabstat wtp if alternative == "Electricity" [iweight = hhwt] , by(statecode)
+iweights not allowed
+r(101);
+
+. tabstat wtp if alternative == "Electricity" [pweight = hhwt] , by(statecode)
+pweights not allowed
+r(101);
+
+. tabstat wtp if alternative == "Electricity" [weight = hhwt] , by(statecode)
+(analytic weights assumed)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |   213.992
+       AR |  378.5819
+       AZ |  508.8001
+       CA |  805.8107
+       CO |  1450.999
+       CT |  1271.872
+       DE |  548.3217
+       FL |  120.6111
+       GA |  246.9658
+       IA |   1022.66
+       ID |  1158.358
+       IL |  1343.269
+       IN |  889.5359
+       KS |   607.961
+       KY |  315.8205
+       LA |   242.847
+       MA |  1251.246
+       MD |  531.7048
+       ME |  1405.293
+       MI |  1385.928
+       MN |  1301.498
+       MO |  523.7905
+       MS |  217.8441
+       MT |   1619.72
+       NC |  290.1357
+       ND |  1126.926
+       NE |  779.9941
+       NH |  1567.313
+       NJ |  1193.051
+       NM |  959.5697
+       NV |  764.8844
+       NY |  1325.159
+       OH |  1111.461
+       OK |  389.6698
+       OR |  741.1276
+       PA |  1094.191
+       RI |  1207.173
+       SC |  214.0701
+       SD |  984.2898
+       TN |  303.9536
+       TX |  342.4682
+       UT |  1397.645
+       VA |  412.1254
+       VT |  1564.817
+       WA |  766.9944
+       WI |  1320.368
+       WV |  342.7617
+       WY |  1516.895
+----------+----------
+    Total |  642.1645
+---------------------
+
+. tabstat wtp if choice==1 [weight = hhwt] , by(statecode)
+(analytic weights assumed)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |  354.7075
+       AR |  422.5846
+       AZ |  471.0129
+       CA |  414.4807
+       CO |  343.4788
+       CT |  385.0799
+       DE |  482.9073
+       FL |  194.2215
+       GA |   448.772
+       IA |  420.3165
+       ID |  367.7883
+       IL |  306.0456
+       IN |  462.8974
+       KS |  425.7147
+       KY |  397.5827
+       LA |  338.9733
+       MA |  315.7287
+       MD |  501.1013
+       ME |  686.0018
+       MI |  247.5859
+       MN |  333.7392
+       MO |  433.1384
+       MS |   380.933
+       MT |  519.6495
+       NC |  370.1868
+       ND |  538.7288
+       NE |  462.9293
+       NH |  336.8321
+       NJ |  275.6137
+       NM |  365.3964
+       NV |  394.3491
+       NY |  344.9416
+       OH |  404.9197
+       OK |  448.2979
+       OR |  425.7843
+       PA |  459.0998
+       RI |  285.3283
+       SC |   341.612
+       SD |  457.5176
+       TN |  394.3383
+       TX |  394.5903
+       UT |  258.2546
+       VA |  450.1288
+       VT |  324.3491
+       WA |  449.9639
+       WI |  320.6844
+       WV |  428.7253
+       WY |  516.5843
+----------+----------
+    Total |  376.1509
+---------------------
+
+. by statecode : eststo: quietly estpost summarize wtp if alternative == "Electr
+> icity", listwise
+not sorted
+r(5);
+
+. 
+. esttab using state_means.csv, cells("mean") label nodepvar
+(output written to state_means.csv)
+
+. wd
+command wd is unrecognized
+r(199);
+
+. by statecode : eststo: estpost summarize wtp if alternative == "Electricity", 
+> listwise
+not sorted
+r(5);
+
+. sort by statecode
+variable by not found
+r(111);
+
+. sort statecode
+
+. by statecode : eststo: estpost summarize wtp if alternative == "Electricity", 
+> listwise
+
+--------------------------------------------------------------------------------
+-> AL
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     18536      18536   215.2326    15117.9   122.9549   25.94628 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1159.823    3989552 
+(est1 stored)
+
+--------------------------------------------------------------------------------
+-> AR
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     11379      11379   367.4521   40112.19   200.2803   58.28781 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2073.134    4181237 
+(est2 stored)
+
+--------------------------------------------------------------------------------
+-> AZ
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     34404      34404     504.29   49628.89   222.7754   82.52995 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1782.252   1.73e+07 
+(est3 stored)
+
+--------------------------------------------------------------------------------
+-> CA
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     78095      78095   816.8336   149657.6    386.856   154.1314 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3871.031   6.38e+07 
+(est4 stored)
+
+--------------------------------------------------------------------------------
+-> CO
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     21647      21647     1462.8   233629.5   483.3524   417.7347 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3756.155   3.17e+07 
+(est5 stored)
+
+--------------------------------------------------------------------------------
+-> CT
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      3101       3101   1319.523   374902.5   612.2928   299.1633 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  4709.132    4091841 
+(est6 stored)
+
+--------------------------------------------------------------------------------
+-> DE
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      4340       4340   554.7617   59250.43   243.4141    63.2844 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1672.357    2407666 
+(est7 stored)
+
+--------------------------------------------------------------------------------
+-> FL
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     91015      91015   120.7691   5811.518   76.23331   15.12708 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1759.508   1.10e+07 
+(est8 stored)
+
+--------------------------------------------------------------------------------
+-> GA
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     47075      47075   243.1055   20047.96   141.5908   25.87392 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1314.096   1.14e+07 
+(est9 stored)
+
+--------------------------------------------------------------------------------
+-> IA
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      7142       7142   1026.839   167218.6   408.9237   190.2704 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2408.073    7333688 
+(est10 stored)
+
+--------------------------------------------------------------------------------
+-> ID
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      6998       6998    1165.03   143297.4   378.5465   236.9591 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2564.782    8152881 
+(est11 stored)
+
+--------------------------------------------------------------------------------
+-> IL
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     29751      29751   1235.104   285193.9   534.0355   201.8593 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |   3521.89   3.67e+07 
+(est12 stored)
+
+--------------------------------------------------------------------------------
+-> IN
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     19059      19059   872.5624   123885.6   351.9739   143.9894 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2592.893   1.66e+07 
+(est13 stored)
+
+--------------------------------------------------------------------------------
+-> KS
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      7329       7329    598.415   93089.58   305.1059    78.3048 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1725.986    4385784 
+(est14 stored)
+
+--------------------------------------------------------------------------------
+-> KY
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     16757      16757   317.6295   32395.58   179.9877   42.11843 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1416.283    5322517 
+(est15 stored)
+
+--------------------------------------------------------------------------------
+-> LA
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     16731      16731   240.7639   22297.38   149.3231   37.91778 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1470.836    4028221 
+(est16 stored)
+
+--------------------------------------------------------------------------------
+-> MA
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      8644       8644   1220.232   285670.7   534.4817   326.4215 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3710.339   1.05e+07 
+(est17 stored)
+
+--------------------------------------------------------------------------------
+-> MD
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     15546      15546   518.3698   85929.03   293.1365   54.55875 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2075.506    8058577 
+(est18 stored)
+
+--------------------------------------------------------------------------------
+-> ME
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |       298        298   1411.406   269106.1   518.7544   451.3781 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2827.335   420599.1 
+(est19 stored)
+
+--------------------------------------------------------------------------------
+-> MI
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     19312      19312   1367.635   239116.7   488.9956   268.3646 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |   3314.15   2.64e+07 
+(est20 stored)
+
+--------------------------------------------------------------------------------
+-> MN
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     12893      12893   1292.973   207351.7   455.3589   268.4435 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2923.522   1.67e+07 
+(est21 stored)
+
+--------------------------------------------------------------------------------
+-> MO
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     18047      18047    494.823   64472.54   253.9144    62.4621 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2608.517    8930071 
+(est22 stored)
+
+--------------------------------------------------------------------------------
+-> MS
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     12170      12170   227.9656   17050.61    130.578   33.68301 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1075.932    2774342 
+(est23 stored)
+
+--------------------------------------------------------------------------------
+-> MT
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      2979       2979   1655.986     229941   479.5217   541.6371 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3169.174    4933184 
+(est24 stored)
+
+--------------------------------------------------------------------------------
+-> NC
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     45871      45871   295.6013   28338.76   168.3412   35.14012 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1407.195   1.36e+07 
+(est25 stored)
+
+--------------------------------------------------------------------------------
+-> ND
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      2571       2571   1213.402   277438.5   526.7243   268.2741 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2929.998    3119656 
+(est26 stored)
+
+--------------------------------------------------------------------------------
+-> NE
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      5240       5240   802.0886   116904.6   341.9132   128.4175 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2346.159    4202944 
+(est27 stored)
+
+--------------------------------------------------------------------------------
+-> NH
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      1032       1032   1552.572   340940.5   583.9011   559.3054 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3520.576    1602254 
+(est28 stored)
+
+--------------------------------------------------------------------------------
+-> NJ
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     17843      17843   1138.966   246644.7   496.6334   220.7954 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3779.755   2.03e+07 
+(est29 stored)
+
+--------------------------------------------------------------------------------
+-> NM
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      6134       6134   943.4003   128015.9   357.7931   191.7908 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2306.914    5786817 
+(est30 stored)
+
+--------------------------------------------------------------------------------
+-> NV
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     17965      17965   794.2418   93065.64   305.0666   177.5403 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2850.491   1.43e+07 
+(est31 stored)
+
+--------------------------------------------------------------------------------
+-> NY
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     20247      20247   1291.363   297681.3   545.6018   457.2764 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |   3977.01   2.61e+07 
+(est32 stored)
+
+--------------------------------------------------------------------------------
+-> OH
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     26008      26008   1065.575   184259.5   429.2546   176.5295 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2926.749   2.77e+07 
+(est33 stored)
+
+--------------------------------------------------------------------------------
+-> OK
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     11259      11259   382.9682   40408.32   201.0182   64.41293 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1614.114    4311838 
+(est34 stored)
+
+--------------------------------------------------------------------------------
+-> OR
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     14008      14008   770.1246   112707.5   335.7193   159.1913 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2699.983   1.08e+07 
+(est35 stored)
+
+--------------------------------------------------------------------------------
+-> PA
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     19010      19010   1030.227   180102.2   424.3844   149.0082 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |   2926.72   1.96e+07 
+(est36 stored)
+
+--------------------------------------------------------------------------------
+-> RI
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      1295       1295   1187.508   276181.2   525.5294   298.9357 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3022.771    1537823 
+(est37 stored)
+
+--------------------------------------------------------------------------------
+-> SC
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     24316      24316   224.2516   16337.66   127.8189   26.91748 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2085.669    5452903 
+(est38 stored)
+
+--------------------------------------------------------------------------------
+-> SD
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      3783       3783    1021.44   189806.2   435.6675   171.2715 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2617.189    3864106 
+(est39 stored)
+
+--------------------------------------------------------------------------------
+-> TN
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     27155      27155   311.6252   29137.63   170.6975   38.32333 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1497.915    8462184 
+(est40 stored)
+
+--------------------------------------------------------------------------------
+-> TX
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |    116417     116417   358.4595   39152.92    197.871   50.31762 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2525.086   4.17e+07 
+(est41 stored)
+
+--------------------------------------------------------------------------------
+-> UT
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     12707      12707   1424.377     175499    418.926   320.2075 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3066.435   1.81e+07 
+(est42 stored)
+
+--------------------------------------------------------------------------------
+-> VA
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     28302      28302   405.1036   53065.53   230.3596   42.78226 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2880.724   1.15e+07 
+(est43 stored)
+
+--------------------------------------------------------------------------------
+-> VT
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |       487        487   1675.645   332420.9   576.5595   510.2571 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2934.806   816039.1 
+(est44 stored)
+
+--------------------------------------------------------------------------------
+-> WA
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     26271      26271   800.9967   124981.1   353.5267   161.1207 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2376.216   2.10e+07 
+(est45 stored)
+
+--------------------------------------------------------------------------------
+-> WI
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |     12095      12095   1379.221   216917.9   465.7444   435.6826 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  3374.008   1.67e+07 
+(est46 stored)
+
+--------------------------------------------------------------------------------
+-> WV
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      4954       4954   343.5122   42865.76   207.0405   38.89054 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  1374.161    1701759 
+(est47 stored)
+
+--------------------------------------------------------------------------------
+-> WY
+
+             |  e(count)   e(sum_w)    e(mean)     e(Var)      e(sd)     e(min) 
+-------------+------------------------------------------------------------------
+         wtp |      2251       2251   1565.593   260380.2   510.2747   455.4015 
+
+             |    e(max)     e(sum) 
+-------------+----------------------
+         wtp |  2998.364    3524149 
+(est48 stored)
+
+. by country: eststo: quietly estpost summarize x1 x2 x3 x4, listwise
+variable country not found
+r(111);
+
+. 
+. esttab using summary.csv, cells("mean") label nodepvar
+(output written to summary.csv)
+
+. by statecode: eststo: quietly estpost summarize wtp, listwise
+
+--------------------------------------------------------------------------------
+-> AL
+(est49 stored)
+
+--------------------------------------------------------------------------------
+-> AR
+(est50 stored)
+
+--------------------------------------------------------------------------------
+-> AZ
+(est51 stored)
+
+--------------------------------------------------------------------------------
+-> CA
+(est52 stored)
+
+--------------------------------------------------------------------------------
+-> CO
+(est53 stored)
+
+--------------------------------------------------------------------------------
+-> CT
+(est54 stored)
+
+--------------------------------------------------------------------------------
+-> DE
+(est55 stored)
+
+--------------------------------------------------------------------------------
+-> FL
+(est56 stored)
+
+--------------------------------------------------------------------------------
+-> GA
+(est57 stored)
+
+--------------------------------------------------------------------------------
+-> IA
+(est58 stored)
+
+--------------------------------------------------------------------------------
+-> ID
+(est59 stored)
+
+--------------------------------------------------------------------------------
+-> IL
+(est60 stored)
+
+--------------------------------------------------------------------------------
+-> IN
+(est61 stored)
+
+--------------------------------------------------------------------------------
+-> KS
+(est62 stored)
+
+--------------------------------------------------------------------------------
+-> KY
+(est63 stored)
+
+--------------------------------------------------------------------------------
+-> LA
+(est64 stored)
+
+--------------------------------------------------------------------------------
+-> MA
+(est65 stored)
+
+--------------------------------------------------------------------------------
+-> MD
+(est66 stored)
+
+--------------------------------------------------------------------------------
+-> ME
+(est67 stored)
+
+--------------------------------------------------------------------------------
+-> MI
+(est68 stored)
+
+--------------------------------------------------------------------------------
+-> MN
+(est69 stored)
+
+--------------------------------------------------------------------------------
+-> MO
+(est70 stored)
+
+--------------------------------------------------------------------------------
+-> MS
+(est71 stored)
+
+--------------------------------------------------------------------------------
+-> MT
+(est72 stored)
+
+--------------------------------------------------------------------------------
+-> NC
+(est73 stored)
+
+--------------------------------------------------------------------------------
+-> ND
+(est74 stored)
+
+--------------------------------------------------------------------------------
+-> NE
+(est75 stored)
+
+--------------------------------------------------------------------------------
+-> NH
+(est76 stored)
+
+--------------------------------------------------------------------------------
+-> NJ
+(est77 stored)
+
+--------------------------------------------------------------------------------
+-> NM
+(est78 stored)
+
+--------------------------------------------------------------------------------
+-> NV
+(est79 stored)
+
+--------------------------------------------------------------------------------
+-> NY
+(est80 stored)
+
+--------------------------------------------------------------------------------
+-> OH
+(est81 stored)
+
+--------------------------------------------------------------------------------
+-> OK
+(est82 stored)
+
+--------------------------------------------------------------------------------
+-> OR
+(est83 stored)
+
+--------------------------------------------------------------------------------
+-> PA
+(est84 stored)
+
+--------------------------------------------------------------------------------
+-> RI
+(est85 stored)
+
+--------------------------------------------------------------------------------
+-> SC
+(est86 stored)
+
+--------------------------------------------------------------------------------
+-> SD
+(est87 stored)
+
+--------------------------------------------------------------------------------
+-> TN
+(est88 stored)
+
+--------------------------------------------------------------------------------
+-> TX
+(est89 stored)
+
+--------------------------------------------------------------------------------
+-> UT
+(est90 stored)
+
+--------------------------------------------------------------------------------
+-> VA
+(est91 stored)
+
+--------------------------------------------------------------------------------
+-> VT
+(est92 stored)
+
+--------------------------------------------------------------------------------
+-> WA
+(est93 stored)
+
+--------------------------------------------------------------------------------
+-> WI
+(est94 stored)
+
+--------------------------------------------------------------------------------
+-> WV
+(est95 stored)
+
+--------------------------------------------------------------------------------
+-> WY
+(est96 stored)
+
+. 
+. esttab using state_wtp_means.csv, cells("mean") label nodepvar
+(output written to state_wtp_means.csv)
+
+. eststo X : qui estpost tabstat wtp if alternative == "Electricity" [weight = h
+> hwt] , by(statecode) 
+
+. 
+. esttab X using state_wtp_means.csv , cells("wtp") plain nomtitle nonumber noob
+> s
+file state_wtp_means.csv already exists
+r(602);
+
+. esttab X using state_wtp_means.csv , cells("wtp") plain nomtitle nonumber noob
+> s replace
+(output written to state_wtp_means.csv)
+
+. eststo X : qui estpost tabstat wtp if alternative == "Electricity" [weight = h
+> hwt] , by(statecode) 
+
+. esttab X using state_wtp_means.csv , cells("wtp") plain nomtitle nonumber noob
+> s replace
+(output written to state_wtp_means.csv)
+
+. esttab X using state_wtp_means.csv , plain nomtitle nonumber noobs replace
+(output written to state_wtp_means.csv)
+
+. ret li
+
+scalars:
+            r(nmodels) =  1
+
+macros:
+                 r(fn) : "state_wtp_means.csv"
+              r(names) : "X"
+            r(cmdline) : "estout X using `"state_wtp_means.csv"', cells(b(fm.."
+
+. tabstat wtp if alternative == "Electricity" [weight = hhwt] , by(statecode)
+(analytic weights assumed)
+
+Summary for variables: wtp
+Group variable: statecode 
+
+statecode |      Mean
+----------+----------
+       AL |   213.992
+       AR |  378.5819
+       AZ |  508.8001
+       CA |  805.8107
+       CO |  1450.999
+       CT |  1271.872
+       DE |  548.3217
+       FL |  120.6111
+       GA |  246.9658
+       IA |   1022.66
+       ID |  1158.358
+       IL |  1343.269
+       IN |  889.5359
+       KS |   607.961
+       KY |  315.8205
+       LA |   242.847
+       MA |  1251.246
+       MD |  531.7048
+       ME |  1405.293
+       MI |  1385.928
+       MN |  1301.498
+       MO |  523.7905
+       MS |  217.8441
+       MT |   1619.72
+       NC |  290.1357
+       ND |  1126.926
+       NE |  779.9941
+       NH |  1567.313
+       NJ |  1193.051
+       NM |  959.5697
+       NV |  764.8844
+       NY |  1325.159
+       OH |  1111.461
+       OK |  389.6698
+       OR |  741.1276
+       PA |  1094.191
+       RI |  1207.173
+       SC |  214.0701
+       SD |  984.2898
+       TN |  303.9536
+       TX |  342.4682
+       UT |  1397.645
+       VA |  412.1254
+       VT |  1564.817
+       WA |  766.9944
+       WI |  1320.368
+       WV |  342.7617
+       WY |  1516.895
+----------+----------
+    Total |  642.1645
+---------------------
+
+. list p id in 1/10
+
+     +-------------------+
+     |        p       id |
+     |-------------------|
+  1. | .3660278   149363 |
+  2. | .6572974   782631 |
+  3. | .3146253     2594 |
+  4. | .0907078    90089 |
+  5. | .9228739    89858 |
+     |-------------------|
+  6. | .6958669   542621 |
+  7. | .3770986    21421 |
+  8. | .3799475   257899 |
+  9. | .9572908   149355 |
+ 10. | .3622108   694119 |
+     +-------------------+
+
+. list p id alternative in 1/10
+
+     +---------------------------------+
+     |        p       id   alternative |
+     |---------------------------------|
+  1. | .3660278   149363   Natural Gas |
+  2. | .6572974   782631   Electricity |
+  3. | .3146253     2594   Natural Gas |
+  4. | .0907078    90089   Natural Gas |
+  5. | .9228739    89858   Electricity |
+     |---------------------------------|
+  6. | .6958669   542621   Electricity |
+  7. | .3770986    21421   Natural Gas |
+  8. | .3799475   257899   Natural Gas |
+  9. | .9572908   149355   Electricity |
+ 10. | .3622108   694119   Natural Gas |
+     +---------------------------------+
+
+. sort id
+
+. list p id alternative in 1/10
+
+     +-----------------------------+
+     |        p   id   alternative |
+     |-----------------------------|
+  1. | .6804174    1   Electricity |
+  2. | .3195826    1   Natural Gas |
+  3. | .0529376    2   Electricity |
+  4. | .9470624    2   Natural Gas |
+  5. | .0341195    3   Natural Gas |
+     |-----------------------------|
+  6. | .9658805    3   Electricity |
+  7. | .6917124    4   Electricity |
+  8. | .3082876    4   Natural Gas |
+  9. | .8633927    5   Natural Gas |
+ 10. | .1366073    5   Electricity |
+     +-----------------------------+
+
+. gen choice_hat1 = (p > 0.5)
+
+. 
+. gen elec_hat1 = (choice_hat1 == 1 & alternative == 
+> "Electricity")
+
+. 
+. sum elec elec_hat1 if statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.   
+>     Min        Max
+-------------+---------------------------------------
+> ------------------
+        elec |    156,190    .2893015    .4534396    
+>       0          1
+   elec_hat1 |    156,190    .1419425    .3489923    
+>       0          1
+
+. sum elec elec_hat1 if statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        elec |    156,190    .2893015    .4534396          0          1
+   elec_hat1 |    156,190    .1419425    .3489923          0          1
+
+. gen diff = abs(choice - choice_hat1)
+
+. 
+. sum diff
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        diff |  1,900,938     .270315    .4441226          0          1
+
+. local gas_smc = 9
+
+. 
+. local elec_smc = 0.1
+
+. 
+. gen expenditure_old = expenditure
+
+. 
+. replace expenditure = expenditure_old / ngprice * `gas_smc' if alternative == "Natural Gas"
+(950,469 real changes made)
+
+. 
+. replace expenditure = expenditure_old / elecprice * `elec_smc' if alternative == "Electric"
+(0 real changes made)
+
+. replace expenditure = expenditure_old / elecprice * `elec_smc' if alternative == "Electricity"
+(950,469 real changes made)
+
+. predict p2
+requested action not valid after most recent estimation command
+r(321);
+
+. 
+. gen choice_hat2 = (p2 > 0.5)
+p2 not found
+r(111);
+
+. 
+. gen elec_hat2 = (choice_hat2 == 1 & alternative == "Electricity")
+choice_hat2 not found
+r(111);
+
+. 
+. sum elec elec_hat1 elec_hat2 if statecode == "CA"
+variable elec_hat2 not found
+r(111);
+
+. estimates restore m1
+(results m1 are active now)
+
+. 
+. predict p2
+(option pr assumed; Pr(alternative))
+
+. 
+. gen choice_hat2 = (p2 > 0.5)
+
+. 
+. gen elec_hat2 = (choice_hat2 == 1 & alternative == "Electricity")
+
+. 
+. sum elec elec_hat1 elec_hat2 if statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        elec |    156,190    .2893015    .4534396          0          1
+   elec_hat1 |    156,190    .1419425    .3489923          0          1
+   elec_hat2 |    156,190    .3861131    .4868586          0          1
+
+. sum ngprice if statecode=="CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+     ngprice |    156,190     11.5493    2.082248   9.742513   14.88857
+
+. sum elecprice ngprice if statecode=="CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+   elecprice |    156,190    17.41035    .8232725   15.86964   19.80743
+     ngprice |    156,190     11.5493    2.082248   9.742513   14.88857
+
+. local gas_smc = 9
+
+. 
+. local elec_smc = 10
+
+. replace expenditure = expenditure_old / ngprice * `gas_smc' if alternative == "Natural Gas"
+(0 real changes made)
+
+. 
+. replace expenditure = expenditure_old / elecprice * `elec_smc' if alternative == "Electricity"
+(950,469 real changes made)
+
+. estimates restore m1
+(results m1 are active now)
+
+. 
+. predict p2
+variable p2 already defined
+r(110);
+
+. 
+. gen choice_hat2 = (p2 > 0.5)
+variable choice_hat2 already defined
+r(110);
+
+. 
+. gen elec_hat2 = (choice_hat2 == 1 & alternative == "Electricity")
+variable elec_hat2 already defined
+r(110);
+
+. 
+. sum elec elec_hat1 elec_hat2 if statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        elec |    156,190    .2893015    .4534396          0          1
+   elec_hat1 |    156,190    .1419425    .3489923          0          1
+   elec_hat2 |    156,190    .3861131    .4868586          0          1
+
+. del p2
+command del is unrecognized
+r(199);
+
+. rm p2
+file p2 not found
+r(601);
+
+. drop p2
+
+. predict p2
+(option pr assumed; Pr(alternative))
+
+. 
+. gen choice_hat2 = (p2 > 0.5)
+variable choice_hat2 already defined
+r(110);
+
+. 
+. gen elec_hat2 = (choice_hat2 == 1 & alternative == "Electricity")
+variable elec_hat2 already defined
+r(110);
+
+. 
+. sum elec elec_hat1 elec_hat2 if statecode == "CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+        elec |    156,190    .2893015    .4534396          0          1
+   elec_hat1 |    156,190    .1419425    .3489923          0          1
+   elec_hat2 |    156,190    .3861131    .4868586          0          1
+
+. di `elec_smc'
+10
+
+. gen expenditure_diff = expenditure - expenditure_old
+
+. sum expenditure_diff
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+expenditur~f |  1,900,938   -.1926776    .2281411  -2.034081   .2762823
+
+. sum expenditure_old
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+expenditur~d |  1,900,938    .8416196    .4741203   .2564095   3.509772
+
+. sum expenditure_diff if statecode =="CA"
+
+    Variable |        Obs        Mean    Std. dev.       Min        Max
+-------------+---------------------------------------------------------
+expenditur~f |    156,190    -.253482    .1922828  -.5803068  -.0199492
+
+. 
+
+
+
+
+
+
+
+
+

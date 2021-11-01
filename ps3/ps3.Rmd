@@ -1,0 +1,448 @@
+---
+title: "ARE 261-B PS 1 (Shapiro)"
+date: "2021-11-09"
+output:
+  bookdown::pdf_document2:
+    toc: true
+    toc_depth: 2
+header-includes:
+   - \usepackage{dcolumn}
+classoption: portrait
+knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = file.path(dirname(inputFile), 'ARE_261B_PS1_acWatt.pdf')) })
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+<!--
+R version 3.6.3 (2020-02-29)
+Purpose of script: run code necessary for problem set for ARE 261B
+
+Notes: Need to open ps3.Rmd from ps3 folder (without Rstudio being started first)
+If Rstudio is already started, the working directory will not be set
+to the ps3/ folder
+
+\usepackage{dcolumn}: dcolumn is needed in latex compilation if outputting
+a table with multiple columns
+-->
+
+```{r Settings, echo=FALSE}
+# stargazer table type (html, latex, or text)
+# Change to latex when outputting to PDF, html when outputting to html
+table_type = "pdf"
+cache_chunks = F
+```
+
+
+
+
+```{r packages, results='hide', message=FALSE, echo=F, eval=T, cache=cache_chunks}
+# install.packages("bookdown")
+library(tidyverse)
+library(haven)
+library(fs)  # file handling
+library(Hmisc)  # adding labels to data
+library(latex2exp)  # latex in strings
+```
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# Replication
+<!--=========================================================================
+Download NOx emissions data from 2002 and 2005 at the unit level for Acid Rain
+units from the EPA’s Air Program Markets Data (formerly the Clean Air Markets Database). Recreate
+Figure 1 from the paper, though using only year 2002 and 2005 data.-->
+
+```{r Load Data, results='hide', echo=F, warning=F, message=F, cache=cache_chunks}
+# Data labels
+variable_labels_df = read.csv('datadefinitions.csv')
+variable_labels <- setNames(as.character(variable_labels_df$Definition), variable_labels_df$Variable)
+# Participating states
+states_df = read_csv('nbp_states.csv', show_col_types=F) %>%
+    left_join(., read_csv('state_abbr_lookup.csv', show_col_types=F), by = c('state' = 'State'))
+# load data
+data = bind_rows(lapply(dir_ls('.', recurse=T, regexp='emission_(.)*(.csv)'), read_csv, show_col_types=F)) %>%
+    Hmisc::upData(., labels = variable_labels) %>%
+    filter(State %in% states_df$Postal)  # filter in only NBP participating states
+```
+
+Possible columns:
+State, Facility Name, Facility ID (ORISPL), Unit ID, Associated Stacks, Date, Year, Program(s), Operating Time, Gross Load (MW-h), Steam Load (1000lb), SO2 (tons), Avg. NOx Rate (lb/MMBtu), NOx (tons), CO2 (short tons), Heat Input (MMBtu), EPA Region, NERC Region, County, Source Category, Facility Latitude, Facility Longitude, Owner, Operator, Representative (Primary), Representative (Secondary), SO2 Phase, NOx Phase, Operating Status, Unit Type, Fuel Type (Primary), Fuel Type (Secondary), SO2 Control(s), NOx Control(s), PM Control(s), Hg Control(s)
+
+Come back to think about:
+- Operating Time
+- Avg. NOx Rate (lb/MMBtu)
+- Heat Input (MMBtu)
+- Source Category
+- latitude & longitude
+- NOx phase
+- operating status
+- unit type, fuel types
+- pollution controls
+
+```{r Create Variables, echo=F, cache=cache_chunks}
+df = data %>%
+    select(State, 'Facility ID (ORISPL)', Date, Year, 'NOx (tons)', County, 'Operating Time') %>%
+    rename(state=State, id='Facility ID (ORISPL)', date=Date, year=Year, NOx='NOx (tons)', county=County, operating_time='Operating Time') %>%
+    mutate(day_of_year = lubridate::yday(date),
+           day_of_week = lubridate::wday(date, label=T, week_start=3),  # reference category = Wednesday
+           NOx = ifelse(operating_time==0 & is.na(NOx), 0, NOx))
+```
+
+These estimates are obtained from an OLS regression of NO x emissions on six 
+day-of-week indicators and a constant. The values in the graph equal the constant
+plus the regression residuals, so that the graph depicts fitted values for the
+reference category (Wednesday).
+
+
+## Data
+\def\nox{NO$_{x}$}
+Data for \nox emssions in 2002 and 2005 for states participating in the EPA's 
+Nitrogen Oxides (\nox) Budget Program (NBP) were downloaded from the EPA's 
+Air Markets Program Data database. Facilities missing \nox data for a given day
+that also had measured Operating Time of 0 are assumed to have 0 \nox for that day.
+
+## Total Daily Average \nox Emissions Figure \@ref(fig:Figure1) depicts total
+daily average \nox emissions over the year, comparing 2002 to 2005 emissions as
+pre- and post-treatment observations. Even as a simple comparison, there's a
+dramatic affect on \nox emissions during the days of the year when the
+NBP-participating states are required to restrict their emissions.
+
+```{r total daily mean nox, echo=F, cache=cache_chunks}
+# OLS regression of NOx emissions on six day-of-week indicators and a constant
+# reference category = Wednesday
+reg_fig1_na = lm(NOx ~ day_of_week, data=df)
+# NOx_hat = constant plus the regression residuals
+df_daily_sums = df %>% 
+    mutate(NOx_hat = ifelse(is.na(NOx), NA, reg_fig1_na$coefficients['(Intercept)'] + reg_fig1_na$residuals)) %>%
+    group_by(day_of_year, year) %>%
+    summarise(NOx_daily_sum = sum(NOx_hat, na.rm=T)/1000)
+```
+
+
+
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# Polynomial regression discontinuity
+<!--=========================================================================
+Use data from the year 2005 on states included in the NOx Budget Trading
+Program. Aggregate the data so you have 365 observations, each representing
+total NOx emissions from states regulated in the NBP. Consider a regression of
+NOx emissions on a quadratic polynomial in day-of-year and an indicator for the
+ozone season (May-September).
+
+a. Write out the econometric equation corresponding to this estimator.
+
+b. Estimate two versions of regression discontinuity for this equation, one for
+May 1 and one for Sep 30. In each, use a 2-month window (1 month on each side of
+the discontinuity). Report the estimated effect of the NOx Budget Trading
+Program on NOx emissions.
+
+c. Briefly explain how you deal with inference and weighting and why you use
+this approach.-->
+
+
+
+## The econometric equation
+
+\[\begin{aligned}
+NOx_{t} &= \beta_0 + \beta_1\cdot t + \beta_2\cdot t^2 + \gamma\cdot s + \varepsilon_{t,s}\\[0.5em]
+\text{where } t &= \text{} \\
+    t &= \text{is the day of the year (an integer between 1 and 365)} \\
+    D_t &= \text{is the ozone season indicator; 1 if $t\in$ [121, 273] (the ozone season*)} \\
+    t &= \text{} \\
+    t &= \text{} \\
+    NOx_{t,s} &= \text{} 
+\end{aligned}\]
+*The ozone season is May-September. May 1$^\text{th}$, 2005 is the 121$^\text{st}$
+day of the year and September 30$^\text{th}$, 2005 is the 273$^\text{rd}$
+day of the year.
+
+## The regressions
+
+```{r data: 2005 aggregation, echo=F}
+df_2005_agg = df %>%
+    filter(year == 2005) %>%
+    mutate(ozone_season = if_else(lubridate::month(date) %in% 5:9, 1, 0)) %>%
+    group_by(day_of_year) %>% 
+    summarise(NOx_daily_sum = sum(NOx, na.rm=T)/1000,
+              year = mean(year)) %>%
+    Hmisc::upData(., labels = list(NOx_daily_sum = "Sum of daily avg NOx emissions from NBP states (1000s of tons)"))
+```
+
+## Regression Discontinuity at the beginning of the season
+
+```{r May regression}
+
+```
+
+
+## Regression Discontinuity at the end of the season
+
+```{r Sept regression}
+
+```
+
+
+\newpage
+<!--=========================================================================-->
+# Spline Regression Discontinuity
+<!--=========================================================================
+Repeat the exercise of part 2, but let the quadratic polynomial
+terms differ to the left and to the right of the discontinuity.
+
+a. Write out the econometric equation corresponding to this estimator.
+
+b. Report the estimated effect of the NBP on NOx Emissions.-->
+
+
+
+
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# Cross-Sectional Comparison
+<!--=========================================================================
+Using the same daily data as in part (2), using a regression, consider
+an estimator of the effect of the NOx Budget Trading Program on NOx emissions by comparing mean
+emissions in the May-September period against the other months of the year
+
+a. Write out the econometric equation corresponding to this estimator
+
+b. Report the estimated effect of the NBP on NOx emissions by applying this estimator in 2005.-->
+
+
+
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# Pre/post differences-in-differences
+<!--=========================================================================
+Use daily data so each observation represents total emissions
+from the Eastern U.S. or from the Western U.S. in a given calendar date. Consider an estimator of the
+effect of the NOx Budget Trading Program on NOx emissions by taking the difference between May-
+September versus the rest of the year, and comparing this difference after the market began against
+that difference before the market began.
+
+a. Write out the econometric equation corresponding to this estimator.
+
+b. Report the estimated effect of the NBP on NOx emissions by applying this estimator for the
+Eastern U.S.-->
+
+
+
+
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# East/west differences-in-differences
+<!--=========================================================================
+Like part 4, but estimate the model for the year 2005 only,
+for states in the NBP and states not in the NBP.
+
+a. Write out the econometric equation
+
+b. Report the estimated effects-->
+
+
+
+
+
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# Differences-in-differences-in-differences
+<!--=========================================================================
+Estimate the effect of the NBP on NOx emissions by
+comparing summer versus winter, pre versus post, and East versus West, in a single equation.
+
+a. Write out the econometric equation
+
+b. Report the estimated effect of the NBP
+
+c. Briefly explain how you deal with inference and weighting and why you use this approach.-->
+
+
+
+
+
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# Discussion of Estimators
+<!--=========================================================================
+What are the potential threats to internal validity of the estimator in equation (7)? Which of the
+estimators in parts (1)-(7) represents the most reasonable approach to measuring the effects of this
+program, and why?-->
+
+
+
+
+
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# EPA emissions caps
+<!--=========================================================================
+The EPA announced emissions caps on emissions for each year of the NBP. Why not use those caps
+to measure the effect of the program, rather than using these regressions?-->
+
+
+
+
+
+
+
+
+
+\newpage
+<!--=========================================================================-->
+# Marginal Willingness to Pay for Improvements in Air Quality
+<!--=========================================================================-->
+
+
+
+
+<!--=========================================================================-->
+## First-order Conditions for the Consumer
+<!--=========================================================================
+Show the first-order conditions for the consumer’s problem. Explain the meaning of each in words.-->
+
+
+
+
+<!--=========================================================================-->
+## Equation (2) [write title of meaning of Eq2]
+<!--=========================================================================
+Derive equation (2).-->
+
+
+
+
+<!--=========================================================================-->
+## ds/dc [write title of meaning of ds/dc]
+<!--=========================================================================
+Explain in words what ds/dc and ∂s/∂a represent. Why is it difficult to estimate ∂s/∂a?-->
+
+
+
+
+<!--=========================================================================-->
+## Equation (3) [write title of meaning of Eq3]
+<!--=========================================================================
+Derive equation (3)-->
+
+
+
+
+<!--=========================================================================-->
+## Price of (p_a)
+<!--=========================================================================
+What price does p a in the model describe? What complications does this create in using medications
+to construct empirical analogues to equation (3)?-->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!--
+Final Edits: 
+- name only at end
+- main text explaining the results one by one
+- tables and figures numbered at the end
+- present tables and text as you would for a publishable paper
+- include your code at the end
+-->
+
+
+\newpage
+Aaron Watt
+
+
+
+
+# Figures
+
+```{r Figure1, echo=F, fig.height = 4, fig.width = 7,  fig.cap = "Total Daily NO$\\_{\\text{x}}$ Emissions in the NBP-Participating States"}
+ggplot(df_daily_sums, aes(x=day_of_year, y=NOx_daily_sum, group=year)) +
+    geom_line(aes(linetype=factor(year)), color='darkblue') +
+    ggtitle(TeX('')) +
+    ylab('') +
+    scale_x_continuous('Day of year',
+                       breaks=lubridate::yday(c('2002-01-01', '2002-05-01', '2002-10-01', '2002-12-31')),
+                       labels=c('Jan 1', 'May 1', 'Oct 1', 'Dec 31'),
+                       limits=c(1,365), expand=c(0.02,0.02)) +
+    scale_y_continuous(expand=c(0.05,0.05),
+                       breaks=c(2,4,6,8)) +
+    theme(legend.title = element_blank(),
+          legend.box.margin = margin(-0.3, 0, -0.1, 0, "cm"),
+          legend.background = element_blank(),
+          legend.box.background = element_rect(colour = "black"),
+          legend.position = c(0.9, 0.2),
+          panel.grid.major.x = element_blank(),
+          panel.grid.major.y = element_line( size=.1, color="grey" ),
+          axis.line.x = element_line(size=0.5, color='black'),
+          axis.line.y = element_line(size=0.5, color='black'),
+          plot.background = element_blank()) +
+    scale_linetype_manual(name = "Linetype",
+                          values = c('2005'=1, '2002'=2))
+```
+
+\footnotesize 
+*Notes*: Figure \@ref(fig:Figure1) shows average total daily \nox emissions (in
+1000's of Tons) in the NBP participating states in 2002 and 2005. These
+estimates are obtained from an OLS regression of \nox emissions on six
+day-of-week indicators and a constant. The values in the graph equal the
+constant plus the regression residuals, so that the graph depicts fitted values
+for the reference category (Wednesday). Total daily \nox emissions on y-axis are
+measured in thousands of tons. The sample includes emissions from all the Acid
+Rain Units. NBP participating states include: Alabama, Connecticut, Delaware,
+Illinois, Indiana, Kentucky, Maryland, Massachusetts, Michigan, Missouri, New
+Jersey, New York, North Carolina, Ohio, Pennsylvania, Rhode Island, South
+Carolina, Tennessee, Virginia, West Virginia, and Washington, DC. Facilities
+missing \nox data for a given day that also had measured Operating Time of 0 are
+assumed to have 0 \nox for that day. This slightly affects the regression of
+\nox on the day-of-week indicators, but results in very little difference in
+total sums of daily average \nox emissions.
+
+<!-- \normalsize -->
+
+# Code
+
