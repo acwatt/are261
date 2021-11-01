@@ -30,13 +30,13 @@ a table with multiple columns
 # stargazer table type (html, latex, or text)
 # Change to latex when outputting to PDF, html when outputting to html
 table_type = "pdf"
-cache_chunks = F
+cache_chunks = T
 ```
 
 
 
 
-```{r packages, results='hide', message=FALSE, echo=F, eval=T, cache=cache_chunks}
+```{r packages, results='hide', message=FALSE, echo=F, eval=T}
 # install.packages("bookdown")
 library(tidyverse)
 library(haven)
@@ -86,10 +86,11 @@ Come back to think about:
 ```{r Create Variables, echo=F, cache=cache_chunks}
 df = data %>%
     select(State, 'Facility ID (ORISPL)', Date, Year, 'NOx (tons)', County, 'Operating Time') %>%
-    rename(state=State, id='Facility ID (ORISPL)', date=Date, year=Year, NOx='NOx (tons)', county=County, operating_time='Operating Time') %>%
+    rename(state=State, id='Facility ID (ORISPL)', date=Date, year=Year, nox='NOx (tons)', county=County, operating_time='Operating Time') %>%
     mutate(day_of_year = lubridate::yday(date),
            day_of_week = lubridate::wday(date, label=T, week_start=3),  # reference category = Wednesday
-           NOx = ifelse(operating_time==0 & is.na(NOx), 0, NOx))
+           nox = ifelse(operating_time==0 & is.na(nox), 0, nox)) %>%
+    filter(!is.na(nox))
 ```
 
 These estimates are obtained from an OLS regression of NO x emissions on six 
@@ -114,12 +115,12 @@ NBP-participating states are required to restrict their emissions.
 ```{r total daily mean nox, echo=F, cache=cache_chunks}
 # OLS regression of NOx emissions on six day-of-week indicators and a constant
 # reference category = Wednesday
-reg_fig1_na = lm(NOx ~ day_of_week, data=df)
-# NOx_hat = constant plus the regression residuals
+reg_fig1 = lm(nox ~ day_of_week, data=df)
+# nox_hat = constant plus the regression residuals
 df_daily_sums = df %>% 
-    mutate(NOx_hat = ifelse(is.na(NOx), NA, reg_fig1_na$coefficients['(Intercept)'] + reg_fig1_na$residuals)) %>%
+    mutate(nox_hat = reg_fig1$coefficients['(Intercept)'] + reg_fig1$residuals) %>%
     group_by(day_of_year, year) %>%
-    summarise(NOx_daily_sum = sum(NOx_hat, na.rm=T)/1000)
+    summarise(nox_daily_sum = sum(nox_hat, na.rm=T)/1000)
 ```
 
 
@@ -172,9 +173,9 @@ df_2005_agg = df %>%
     filter(year == 2005) %>%
     mutate(ozone_season = if_else(lubridate::month(date) %in% 5:9, 1, 0)) %>%
     group_by(day_of_year) %>% 
-    summarise(NOx_daily_sum = sum(NOx, na.rm=T)/1000,
+    summarise(nox_daily_sum = sum(nox, na.rm=T)/1000,
               year = mean(year)) %>%
-    Hmisc::upData(., labels = list(NOx_daily_sum = "Sum of daily avg NOx emissions from NBP states (1000s of tons)"))
+    Hmisc::upData(., labels = list(nox_daily_sum = "Sum of daily avg NOx emissions from NBP states (1000s of tons)"))
 ```
 
 ## Regression Discontinuity at the beginning of the season
@@ -400,8 +401,8 @@ Aaron Watt
 
 # Figures
 
-```{r Figure1, echo=F, fig.height = 4, fig.width = 7,  fig.cap = "Total Daily NO$\\_{\\text{x}}$ Emissions in the NBP-Participating States"}
-ggplot(df_daily_sums, aes(x=day_of_year, y=NOx_daily_sum, group=year)) +
+```{r Figure1, echo=F, fig.height = 4, fig.width = 7,  fig.cap = "Total Daily \\nox Emissions in the NBP-Participating States"}
+ggplot(df_daily_sums, aes(x=day_of_year, y=nox_daily_sum, group=year)) +
     geom_line(aes(linetype=factor(year)), color='darkblue') +
     ggtitle(TeX('')) +
     ylab('') +
