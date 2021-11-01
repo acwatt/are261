@@ -7,7 +7,9 @@ output:
     toc_depth: 2
 header-includes:
    - \usepackage{dcolumn}
-classoption: portrait
+   - \usepackage{bbm}
+   - \usepackage{multirow}
+   - \usepackage{placeins}
 knit: (function(inputFile, encoding) { rmarkdown::render(inputFile, encoding = encoding, output_file = file.path(dirname(inputFile), 'ARE_261B_PS1_acWatt.pdf')) })
 ---
 
@@ -29,8 +31,10 @@ a table with multiple columns
 ```{r Settings, echo=FALSE}
 # stargazer table type (html, latex, or text)
 # Change to latex when outputting to PDF, html when outputting to html
-table_type = "pdf"
+table_type = "latex"
 cache_chunks = T
+fig_h = 3.5
+fig_w = 6
 ```
 
 
@@ -43,6 +47,18 @@ library(haven)
 library(fs)  # file handling
 library(Hmisc)  # adding labels to data
 library(latex2exp)  # latex in strings
+library(stargazer)  # tables
+library(rddtools)  # Regression discontinuity
+
+plot_theme1 = theme(legend.title = element_blank(),
+                    legend.box.margin = margin(-0.3, 0, -0.1, 0, "cm"),
+                    legend.background = element_blank(),
+                    legend.box.background = element_rect(colour = "black"),
+                    panel.grid.major.x = element_blank(),
+                    panel.grid.major.y = element_line( size=.1, color="grey" ),
+                    axis.line.x = element_line(size=0.5, color='black'),
+                    axis.line.y = element_line(size=0.5, color='black'),
+                    plot.background = element_blank())
 ```
 
 
@@ -89,6 +105,7 @@ df = data %>%
     rename(state=State, id='Facility ID (ORISPL)', date=Date, year=Year, nox='NOx (tons)', county=County, operating_time='Operating Time') %>%
     mutate(day_of_year = lubridate::yday(date),
            day_of_week = lubridate::wday(date, label=T, week_start=3),  # reference category = Wednesday
+           month = lubridate::month(date),
            nox = ifelse(operating_time==0 & is.na(nox), 0, nox)) %>%
     filter(!is.na(nox))
 ```
@@ -106,13 +123,15 @@ Nitrogen Oxides (\nox) Budget Program (NBP) were downloaded from the EPA's
 Air Markets Program Data database. Facilities missing \nox data for a given day
 that also had measured Operating Time of 0 are assumed to have 0 \nox for that day.
 
-## Total Daily Average \nox Emissions Figure \@ref(fig:Figure1) depicts total
+## Total Daily Average \nox Emissions
+
+Figure \@ref(fig:Figure1) depicts total
 daily average \nox emissions over the year, comparing 2002 to 2005 emissions as
 pre- and post-treatment observations. Even as a simple comparison, there's a
 dramatic affect on \nox emissions during the days of the year when the
 NBP-participating states are required to restrict their emissions.
 
-```{r total daily mean nox, echo=F, cache=cache_chunks}
+```{r total daily mean nox, message=F, echo=F, cache=cache_chunks}
 # OLS regression of NOx emissions on six day-of-week indicators and a constant
 # reference category = Wednesday
 reg_fig1 = lm(nox ~ day_of_week, data=df)
@@ -152,44 +171,83 @@ this approach.-->
 
 
 ## The econometric equation
-
-\[\begin{aligned}
-NOx_{t} &= \beta_0 + \beta_1\cdot t + \beta_2\cdot t^2 + \gamma\cdot s + \varepsilon_{t,s}\\[0.5em]
-\text{where } t &= \text{} \\
-    t &= \text{is the day of the year (an integer between 1 and 365)} \\
-    D_t &= \text{is the ozone season indicator; 1 if $t\in$ [121, 273] (the ozone season*)} \\
-    t &= \text{} \\
-    t &= \text{} \\
-    NOx_{t,s} &= \text{} 
-\end{aligned}\]
+\vspace{1em}
+\begin{align}
+NOx_t &= \beta_0 + \beta_1\cdot t + \beta_2\cdot t^2 + \gamma\cdot\mathbbm{1}(\text{NBP Operating at }t)
+    + \varepsilon_t \label{eq:polynomial}\\[1em]
+\text{where } t &= \text{day of the year (an integer between 1 and 365)} \nonumber \\
+    \mathbbm{1}(\text{NBP Operating at }t) &= \text{ozone season indicator; 1 if $t\in$ [121, 273] (the ozone season*)} \nonumber \\
+    NOx_t &= \text{sum of average daily \nox emissions from NBP states on day }t \nonumber
+\end{align}
 *The ozone season is May-September. May 1$^\text{th}$, 2005 is the 121$^\text{st}$
 day of the year and September 30$^\text{th}$, 2005 is the 273$^\text{rd}$
 day of the year.
 
-## The regressions
 
-```{r data: 2005 aggregation, echo=F}
+```{r data: 2005 aggregation, echo=F, results='hide'}
 df_2005_agg = df %>%
     filter(year == 2005) %>%
-    mutate(ozone_season = if_else(lubridate::month(date) %in% 5:9, 1, 0)) %>%
     group_by(day_of_year) %>% 
     summarise(nox_daily_sum = sum(nox, na.rm=T)/1000,
-              year = mean(year)) %>%
+              year = mean(year), month=mean(month)) %>%
+    mutate(ozone_season = if_else(day_of_year %in% lubridate::yday('2005-05-01'):lubridate::yday('2005-09-30'), 1, 0)) %>%
     Hmisc::upData(., labels = list(nox_daily_sum = "Sum of daily avg NOx emissions from NBP states (1000s of tons)"))
 ```
 
-## Regression Discontinuity at the beginning of the season
+## Polynomial Regression Discontinuity estimates at the beginning and end of the season
 
-```{r May regression}
+```{r May regression constant only, echo=F}
+reg_poly1 = df_2005_agg %>% 
+    filter(month %in% c(4,5)) %>%
+    rdd_data(nox_daily_sum, day_of_year, data=.,
+             cutpoint=lubridate::yday('2005-05-01')) %>%
+    rdd_reg_lm(slope = "same", order = 2)
 
+poly1_coef = reg_poly1$coefficients[2]
+```
+
+The first specification of the polynomial regression discontinuity is estimating
+the discontinuity around the beginning of the ozone season -- estimating the
+impact of the restrictions turning on on May 1st. Column 1 of Table
+\@ref(tab:polynomial-regs) show the estimation of equation \eqref{eq:polynomial}
+after restricting the data to a 2-month window around the beginning of the
+policy in 2005 (April-May). The estimated effect of imposing the restrictions of 
+the \nox Budget Trading Program in May 2005 was a reduction in \nox emissions of about
+`r -round(poly1_coef, 3)` thousand tons.
+
+```{r Sept regression constant only, echo=F}
+reg_poly2 = df_2005_agg %>% 
+    filter(month %in% c(9,10)) %>%
+    rdd_data(nox_daily_sum, day_of_year, data=.,
+             cutpoint=lubridate::yday('2005-10-01')) %>%
+    rdd_reg_lm(slope = "same", order = 2)
+
+poly2_coef = reg_poly2$coefficients[2]
 ```
 
 
-## Regression Discontinuity at the end of the season
+The second specification of the polynomial regression discontinuity is
+estimating the discontinuity around the end of the ozone season -- estimating
+the impact of the restrictions turning off on October 1st. Column 2 of Table
+\@ref(tab:polynomial-regs) show the estimation of equation \eqref{eq:polynomial} after
+restricting the data to a 2-month window around the end of the policy in 2005
+(September-October). The estimated effect of removing the restrictions of 
+the \nox Budget Trading Program in October 2005 was an increase in \nox emissions of about
+`r -round(poly2_coef, 3)` thousand tons.
 
-```{r Sept regression}
 
-```
+## Inference and weighting in the polynomial RD
+
+Because I have aggregated the data to the day-year-state level, the regression of
+\nox emissions on day-of-year and the regulation indicator implicitly weights each
+state equally. The above results should then be interpreted as a reduction (increase)
+of `r -round(poly1_coef, 3)*1000` tons (`r -round(poly2_coef, 3)*1000` tons) of 
+\nox emissions in the average NBP state at the start (end) of the regulation season.
+We could instead rewight the regression using the number of firms in each state
+and interpret the estimated effects as an reduction or increase in the average
+firm's \nox emissions.
+
+
 
 
 \newpage
@@ -203,11 +261,55 @@ a. Write out the econometric equation corresponding to this estimator.
 
 b. Report the estimated effect of the NBP on NOx Emissions.-->
 
+## The econometric equation
+\vspace{1em}
+\begin{align}
+NOx_t &= \beta_0 + \beta_1\cdot t + \beta_2\cdot t^2 \nonumber \\
+    &+ \beta_3\cdot t \cdot\mathbbm{1}(\text{NBP Operating at }t) 
+    + \beta_4\cdot t^2 \cdot\mathbbm{1}(\text{NBP Operating at }t) \label{eq:spline}\\
+    &+ \gamma\cdot\mathbbm{1}(\text{NBP Operating})_t
+    + \varepsilon_t \nonumber
+\end{align}
 
+## Spline Regression Discontinuity estimates at the beginning and end of the season
 
+```{r May regression separate trends, echo=F}
+reg_poly3 = df_2005_agg %>% 
+    filter(month %in% c(4,5)) %>%
+    rdd_data(nox_daily_sum, day_of_year, data=.,
+             cutpoint=lubridate::yday('2005-05-01')) %>%
+    rdd_reg_lm(slope = "separate", order = 2)
 
+poly3_coef = reg_poly3$coefficients[2]
+```
 
+The first specification of the spline regression discontinuity is estimating
+the discontinuity around the beginning of the ozone season -- estimating the
+impact of the restrictions turning on on May 1st. Column 3 of Table
+\@ref(tab:polynomial-regs) show the estimation of equation \eqref{eq:spline}
+after restricting the data to a 2-month window around the beginning of the
+policy in 2005 (April-May). The estimated effect of imposing the restrictions of 
+the \nox Budget Trading Program in May 2005 was a reduction in \nox emissions of about
+`r -round(poly3_coef, 3)` thousand tons.
 
+```{r Sept regression separate trends, echo=F}
+reg_poly4 = df_2005_agg %>% 
+    filter(month %in% c(9,10)) %>%
+    rdd_data(nox_daily_sum, day_of_year, data=.,
+             cutpoint=lubridate::yday('2005-10-01')) %>%
+    rdd_reg_lm(slope = "separate", order = 2)
+
+poly4_coef = reg_poly4$coefficients[2]
+```
+
+The second specification of the spline regression discontinuity is
+estimating the discontinuity around the end of the ozone season -- estimating
+the impact of the restrictions turning off on October 1st. Column 2 of Table
+\@ref(tab:polynomial-regs) show the estimation of equation \eqref{eq:polynomial} after
+restricting the data to a 2-month window around the end of the policy in 2005
+(September-October). The estimated effect of removing the restrictions of 
+the \nox Budget Trading Program in October 2005 was an increase in \nox emissions of about
+`r -round(poly4_coef, 3)` thousand tons.
 
 
 \newpage
@@ -383,51 +485,26 @@ to construct empirical analogues to equation (3)?-->
 
 
 
-<!--
-Final Edits: 
-- name only at end
-- main text explaining the results one by one
-- tables and figures numbered at the end
-- present tables and text as you would for a publishable paper
-- include your code at the end
--->
-
-
 \newpage
-Aaron Watt
-
-
-
-
 # Figures
 
-```{r Figure1, echo=F, fig.height = 4, fig.width = 7,  fig.cap = "Total Daily \\nox Emissions in the NBP-Participating States"}
+```{r Figure1, echo=F, message=F, fig.height=4, fig.width=7,  fig.cap="Total Daily nox Emissions in the NBP-Participating States"}
 ggplot(df_daily_sums, aes(x=day_of_year, y=nox_daily_sum, group=year)) +
     geom_line(aes(linetype=factor(year)), color='darkblue') +
     ggtitle(TeX('')) +
-    ylab('') +
+    ylab('') + 
     scale_x_continuous('Day of year',
                        breaks=lubridate::yday(c('2002-01-01', '2002-05-01', '2002-10-01', '2002-12-31')),
                        labels=c('Jan 1', 'May 1', 'Oct 1', 'Dec 31'),
                        limits=c(1,365), expand=c(0.02,0.02)) +
     scale_y_continuous(expand=c(0.05,0.05),
                        breaks=c(2,4,6,8)) +
-    theme(legend.title = element_blank(),
-          legend.box.margin = margin(-0.3, 0, -0.1, 0, "cm"),
-          legend.background = element_blank(),
-          legend.box.background = element_rect(colour = "black"),
-          legend.position = c(0.9, 0.2),
-          panel.grid.major.x = element_blank(),
-          panel.grid.major.y = element_line( size=.1, color="grey" ),
-          axis.line.x = element_line(size=0.5, color='black'),
-          axis.line.y = element_line(size=0.5, color='black'),
-          plot.background = element_blank()) +
+    plot_theme1 + theme(legend.position = c(0.9, 0.2)) +
     scale_linetype_manual(name = "Linetype",
                           values = c('2005'=1, '2002'=2))
 ```
 
-\footnotesize 
-*Notes*: Figure \@ref(fig:Figure1) shows average total daily \nox emissions (in
+*Notes*: Figure \@ref(fig:Figure1) shows total average daily \nox emissions (in
 1000's of Tons) in the NBP participating states in 2002 and 2005. These
 estimates are obtained from an OLS regression of \nox emissions on six
 day-of-week indicators and a constant. The values in the graph equal the
@@ -443,7 +520,179 @@ assumed to have 0 \nox for that day. This slightly affects the regression of
 \nox on the day-of-week indicators, but results in very little difference in
 total sums of daily average \nox emissions.
 
-<!-- \normalsize -->
 
+\newpage
+```{r polynomial-regs, results='asis', echo=F, eval=T}
+stargazer(reg_poly1, reg_poly2, reg_poly3, reg_poly4,
+          title="NBP Polynomial Regression Discontinuity Results for 2005", align=TRUE,
+          header=F, type=table_type,
+          dep.var.caption = "Total Daily Emissions (1000 tons)",
+          dep.var.labels = "",
+          column.labels=c("\\shortstack{NBP Start \\\\ (May)}",
+                          "\\shortstack{NBP End \\\\ (Sepember)}",
+                          "\\shortstack{NBP Start \\\\ (May)}",
+                          "\\shortstack{NBP End \\\\ (Sepember)}"),
+          add.lines = list(c("Separate Time Trend?", "\\centering\\text{No}", "\\text{No}", "\\text{Yes}", "\\text{Yes}")),
+          covariate.labels = 'Ozone Season Indicator',
+          keep='D',
+          label = "tab:polynomial-regs",
+          omit.stat = c("f", "rsq", "ser"), model.numbers=F
+)
+```
+
+*Notes*: The "Separate Time Trend?" row in Table \@ref(tab:polynomial-regs) represents
+whether or not the regression discontinuity included separate time trends for
+while the NBP program was running and when it was not.
+
+
+\newpage
+```{r RDD-poly-1-text, echo=F}
+text1 = "Regression Discontinuity plot with quadratic time trend for beginning 
+of 2005 NBP season (constant shift only). The dependent variable is total average daily \\nox emissions (in
+1000's of Tons) in the NBP participating states in April and May, 2005. The fitted
+RDD lines use a quadratic time trend, with shared time trend parameters on either
+side of the discontinuity -- only the regression intercept term differs on either side."
+```
+
+```{r RDD-poly-1, echo=F, warning=F, message=F, fig.height = fig_h, fig.width = fig_w,  fig.cap = text1}
+data.frame(x = reg_poly1$model$x, y = reg_poly1$model$y, y_hat = reg_poly1$fitted.values) %>%
+    mutate(treat = as.factor(ifelse(x >= 0, 'NBP Operating', 'NBP Not Operating'))) %>%
+    mutate(y_hat_shift = ifelse(treat=='NBP Operating', y_hat - poly1_coef, NA)) %>%
+    ggplot(aes(x=x, y=y, color=treat)) + geom_point() +
+    geom_line(aes(x=x, y=y_hat, color=treat)) +
+    geom_line(aes(x=x, y=y_hat_shift), linetype = "dashed") +
+    xlab('Days after May 1, 2005') +
+    ylab(TeX('Total NO$_{x}$ emissions (1000 tons)')) +
+    plot_theme1 + theme(legend.position = c(0.2, 0.15)) +
+    annotate("segment", x = 3, y = 4.75, xend = 3, yend = 3,
+                  arrow = arrow(length = unit(0.5, "cm"))) + 
+    annotate("text", x = 10, y = 3.75, label = TeX(paste(round(poly1_coef,3)*1000, "tons NO$_{x}$")))
+```
+
+
+
+
+
+
+```{r RDD-poly-2-text, echo=F}
+text2 = "Regression Discontinuity plot with quadratic time trend for end of 2005 
+NBP season (constant shift only). The dependent variable is total average daily \\nox emissions (in
+1000's of Tons) in the NBP participating states in September and October, 2005. The fitted
+RDD lines use a quadratic time trend, with shared time trend parameters on either
+side of the discontinuity -- only the regression intercept term differs on either side."
+```
+
+```{r RDD-poly-2, echo=F, warning=F, message=F, fig.height = fig_h, fig.width = fig_w,  fig.cap = text2}
+data.frame(x = reg_poly2$model$x, y = reg_poly2$model$y, y_hat = reg_poly2$fitted.values) %>%
+    mutate(treat = as.factor(ifelse(x >= 0, 'NBP Operating', 'NBP Not Operating'))) %>%
+    mutate(y_hat_shift = ifelse(treat=='NBP Operating', y_hat - poly2_coef, NA)) %>%
+    ggplot(aes(x=x, y=y, color=treat)) + geom_point() +
+    geom_line(aes(x=x, y=y_hat, color=treat)) +
+    geom_line(aes(x=x, y=y_hat_shift), linetype = "dashed") +
+    xlab('Days after October 1, 2005') +
+    ylab(TeX('Total NO$_{x}$ emissions (1000 tons)')) +
+    plot_theme1 + theme(legend.position = c(0.2, 0.85)) +
+    annotate("segment", x = 4, y = 3.7, xend = 4, yend =5.9,
+                  arrow = arrow(length = unit(0.5, "cm"))) + 
+    annotate("text", x = 10, y = 4.5, label = TeX(paste(round(poly2_coef,3)*1000, "tons NO$_{x}$")))
+```
+
+
+
+
+
+
+
+```{r RDD-poly-3-text, echo=F}
+text3 = "Regression Discontinuity plot with quadratic time trend for beginning of 
+2005 NBP season (constant and trend shifts). The dependent variable is total average daily \\nox emissions (in
+1000's of Tons) in the NBP participating states in September and October, 2005. The fitted
+RDD lines use a quadratic time trend, with separate time trend parameters on either
+side of the discontinuity (a spline RDD) -- both the intercept and time trend
+parameters differs on either side of the regulation threshold (October 1st)."
+```
+
+```{r RDD-poly-3, echo=F, warning=F, message=F, fig.height = fig_h, fig.width = fig_w,  fig.cap = text3}
+data.frame(x = reg_poly3$model$x, y = reg_poly3$model$y, y_hat = reg_poly3$fitted.values) %>%
+    mutate(treat = as.factor(ifelse(x >= 0, 'NBP Operating', 'NBP Not Operating'))) %>%
+    mutate(y_hat_shift = ifelse(treat=='NBP Operating', y_hat - poly3_coef, NA)) %>%
+    ggplot(aes(x=x, y=y, color=treat)) + geom_point() +
+    geom_line(aes(x=x, y=y_hat, color=treat)) +
+    geom_line(aes(x=x, y=y_hat_shift), linetype = "dashed") +
+    xlab('Days after May 1, 2005') +
+    ylab(TeX('Total NO$_{x}$ emissions (1000 tons)')) +
+    plot_theme1 + theme(legend.position = c(0.2, 0.15)) +
+    annotate("segment", x = 6, y = 4.5, xend = 6, yend = 2.9,
+                  arrow = arrow(length = unit(0.5, "cm"))) + 
+    annotate("text", x = 12, y = 3.5, label = TeX(paste(round(poly3_coef,3)*1000, "tons NO$_{x}$")))
+```
+
+
+
+
+
+
+```{r RDD-poly-4-text, echo=F}
+text4 = "Regression Discontinuity plot with quadratic time trend for end of 2005
+NBP season (constant and trend shifts). The dependent variable is total average daily \\nox emissions (in 
+1000's of Tons) in the NBP participating states in September and October, 2005. 
+The fitted RDD lines use a quadratic time trend, with separate time trend parameters on either
+side of the discontinuity (a spline RDD) -- both the intercept and time trend
+parameters differs on either side of the regulation threshold (October 1st)."
+```
+
+```{r RDD-poly-4, echo=F, warning=F, message=F, fig.height = fig_h, fig.width = fig_w,  fig.cap = text1}
+data.frame(x = reg_poly4$model$x, y = reg_poly4$model$y, y_hat = reg_poly4$fitted.values) %>%
+    mutate(treat = as.factor(ifelse(x >= 0, 'NBP Operating', 'NBP Not Operating'))) %>%
+    mutate(y_hat_shift = ifelse(treat=='NBP Operating', y_hat - poly4_coef, NA)) %>%
+    ggplot(aes(x=x, y=y, color=treat)) + geom_point() +
+    geom_line(aes(x=x, y=y_hat, color=treat)) +
+    geom_line(aes(x=x, y=y_hat_shift), linetype = "dashed") +
+    xlab('Days after October 1, 2005') +
+    ylab(TeX('Total NO$_{x}$ emissions (1000 tons)')) +
+    plot_theme1 + theme(legend.position = c(0.2, 0.85)) +
+    annotate("segment", x = 4, y = 3.4, xend = 4, yend = 6,
+                  arrow = arrow(length = unit(0.5, "cm"))) + 
+    annotate("text", x = 10, y = 4.5, label = TeX(paste(round(poly4_coef,3)*1000, "tons NO$_{x}$")))
+```
+
+
+
+\FloatBarrier
+\newpage
 # Code
+
+\newpage
+# References
+
+ Hlavac, Marek (2018). stargazer: Well-Formatted Regression and Summary
+ Statistics Tables. R package version 5.2.2.
+ https://CRAN.R-project.org/package=stargazer
+ 
+ 
+ Deschênes, Olivier, Michael Greenstone, and Joseph S. Shapiro. “Defensive
+ Investments and the Demand for Air Quality: Evidence from the NOx Budget
+ Program.” American Economic Review 107, no. 10 (October 2017): 2958–89.
+ https://doi.org/10.1257/aer.20131002.
+
+
+
+
+
+
+<!--
+Final Edits: 
+- name only at end
+- main text explaining the results one by one
+- tables and figures numbered at the end
+- present tables and text as you would for a publishable paper
+- include your code at the end
+-->
+
+
+\newpage
+# Authorship Info
+Aaron Watt
+
+
 
