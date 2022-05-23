@@ -1,0 +1,38 @@
+subject: ARE 261 reading response
+
+“This part was especially good”; or, “This part was
+especially not good.”
+
+
+what is the most important comment you would highlight to the editor that would cause you to recommend rejecting or accepting this paper?
+
+
+Paper: 
+Ryan, Nicholas, and Anant Sudarshan. “Rationing the Commons.” Working Paper. Working Paper Series. National Bureau of Economic Research, July 2020. https://doi.org/10.3386/w27473.
+
+
+Main points for publishing this paper:
+- This paper provides a framework to assess the effects of misallotation of factor input via a policy that directly distorts firms' input use -- appears to help fill in a very sparse literature on policies that distort factor input.
+- They employ both a sufficient statistics and structural approach in order to only use as restrictive assumptions as necessary to answer each question, rather than using a structural model to answer all questions, which could lead to more model specification bias in estimating efficiency.
+- Employs a clever substitution of exogeneous groundwater attributes for rationing to get around a challenging estimation problem -- which I think is a great example that can be generalize to other settings where there is little or no variation in the policy being evaluated.
+
+
+Other parts I really like about this paper:
+- they explain/hypothesis something more general about the political difficulty of shifting to efficient policies -- there will be losers and they will be upset. Maybe that's obvious, but it was nice to see them generalize the result to explain political behavior.
+- they explain their place in the literature extremely well -- it reads as if it was already published and taking it's place in the literature.
+- they make a great case for the need to examine rations (and other non-efficient policies).
+
+
+A main concern:
+- In the derivation of the sufficient statistic, it appears that they are assuming the pump power is independent of well depth and ration of electricity (the equivalent derivation assuming that dP/dD and dP/dH is not zero is not so clean). It seems strange to me to analyze a significant shift in policy by assuming the farmers would not adapt to a change in policy by optimizing (in the long run) the power of their pump when their well depth changes or their ration of electricity changes. They do mention that the government regulates them on both the intensive and extensive margin of water use via electricity, such that they do not just increase the power of their pumps to get more water -- but I don't see how that means under a significant change in policy that farmers would not be allowed to adapt by changing their pumps.
+
+
+
+
+
+
+
+
+
+
+

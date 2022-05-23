@@ -1,0 +1,28 @@
+subject: ARE 261 reading response
+
+“This part was especially good”; or, “This part was
+especially not good.”
+
+
+what is the most important comment you would highlight to the editor that would cause you to recommend rejecting or accepting this paper?
+
+
+
+What about causes of mortality increase that may be entangled in the estimate? For example, increased urbanization can have mixed affects, giving people more access to healthcare and electricity, but increasing disease transmission and the probability of chronic diseases that may reduce resiliancy to heat-related causes of death.
+
+
+I thought the introduction and discussion about what causes mortality was very good. Without knowing much about the topic, it leaves me with the impression that the effects on decreased mortality were searched fairly exhaustively. Thinking about my own research, I want to have as thorough introductions to topics that my readers my not know much about (become an expert in what I'm studying). I also appreciated the transparency of the challenges in identification and the explanation of 
+where the bias could come from.
+
+I've been reading this all day but can't seem to stop thinking about temperature, so appologies for the diatribe on temperature below. I'm reading a disseration on measurement error of temperature and I can't stop thinking about it. I'll try to skim again in the morning to get a better perspective on "biggest strenght vs critical flaw".
+
+Begin diatribe...
+To be honest, I'm having a hard time understanding how the level of mortality data (state-month) is interacting with the temperature aggregation. The level of measurement just seems so far apart, especially considering the AC adoption is really all just linearly inter-/extrapolated from 3 data points per state. To be more specific on one issue of aggregation of temperature:
+
+The temperature is calculated for the centroid of each county but the centroid may not be anywhere near the population center of the county and could differ dramatically from the temperature that the average person experienced in that county on that day. A population-weighted average of a grid of inverse-distance-weighted temperature points across the county, with even a rough idea of the population density given by one of the censuses, would give a much better estimate of the expectation of (the temperature a randomly selected person would experinece that day). These could then be binned and further weighted by county population.
+
+Since there are only 2-50ish stations per state and we already have county populations, it would be more feasible to population-weight the stations directly using county populations, then create a weighted average of the stations using their normalized population weights to calculate state temperature variables. This preserves the original data (from the stations) and I think is more transparent. It seems to me that using the county centroid imposes an extra averaging step that introduces non-classical measurement error when trying to estimate the population-weighted average state temperature. I say non-classical because I can imagine that since the centorid will likely be outside of a population center, that the heat-island effect would mean a randomly picked point in the county is likely to be lower temperature than the temperature that a population-dense city would face.
+
+
+
+

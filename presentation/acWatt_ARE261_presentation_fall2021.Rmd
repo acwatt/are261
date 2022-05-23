@@ -1,0 +1,172 @@
+---
+title: "Untitled"
+author: "Aaron Watt"
+date: "12/6/2021"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r Packages}
+library(vroom)
+library(tidyverse)
+library(lubridate)
+```
+
+
+
+```{r Load data from zip files, cache=T}
+files <- fs::dir_ls("data/lead-air/", glob = "*.zip")
+data_air = vroom(files)
+```
+
+
+```{r Plot small daily sample}
+data_air %>%
+  filter(`State Code` == "01", `County Code` == "089") %>%
+  ggplot() + geom_line(aes(x=`Date Local`, y=`Arithmetic Mean`))
+```
+
+
+```{r Plot Alabamba annual average sample}
+data_air %>%
+  mutate(year = year(`Date Local`), month = month(`Date Local`)) %>%
+  group_by(`State Code`, year) %>%
+  summarise(mean_lead = mean(`Arithmetic Mean`)) %>%
+  filter(`State Code` == "01") %>%
+  ggplot() + geom_line(aes(x=year, y=mean_lead))
+```
+
+
+```{r Plot All US annual average sample}
+data_air %>%
+  mutate(year = year(`Date Local`), month = month(`Date Local`)) %>%
+  group_by(year) %>%
+  summarise(mean_lead = mean(`Arithmetic Mean`)) %>%
+  ggplot() + geom_line(aes(x=year, y=mean_lead)) +
+  xlab('Year') + ylab('Mean Lead (μg/m^3, simple average)') +
+  ggtitle('Mean Lead Concentration in the Air', subtitle='simple annual average over all US observations')
+
+
+data_air %>%
+  mutate(year = year(`Date Local`), month = month(`Date Local`),
+           y_m = floor_date(`Date Local`, "month")) %>%
+  arrange(`Site Num`, `Date Local`) %>%
+  select(year, month, y_m, `Date Local`, everything())
+  group_by(y_m) %>%
+  summarise(mean_lead = mean(`Arithmetic Mean`)) %>%
+  ggplot() + geom_line(aes(x=year, y=mean_lead))
+```
+
+
+
+
+
+```{r Get water quality data for lead}
+library(dataRetrieval)
+readWQPqw(parameterCd = c("Lead","Lead-210","Lead-211","Lead-212","Lead-214"),
+                          startDate = '2011-05-01',
+                          endDate = '2011-09-30')
+
+readWQPqw(siteNumbers = 'WIDNR_WQX-10032762',
+                          parameterCd = 'Specific conductance',
+                          startDate = '2011-05-01',
+                          endDate = '2011-06-03')
+
+```
+
+
+
+```{r}
+# if ResultDetectionConditionText == "Not Detected" replace ResultMeasureValue with 0
+
+# Merge result (data) with station on MonitoringLocationIdentifier to get StateCode, CountyCode, LatitudeMeasure, LongitudeMeasure
+data_url = 'https://www.waterqualitydata.us/data/Result/search?sampleMedia=Water&characteristicName=Lead&characteristicName=Lead-210&characteristicName=Lead-211&characteristicName=Lead-212&characteristicName=Lead-214&startDateLo=01-01-%i&startDateHi=12-31-%i&mimeType=csv'
+station_url = 'https://www.waterqualitydata.us/data/Station/search?sampleMedia=Water&characteristicName=Lead&characteristicName=Lead-210&characteristicName=Lead-211&characteristicName=Lead-212&characteristicName=Lead-214&startDateLo=01-01-%i&startDateHi=12-31-%i&mimeType=csv'
+
+data_dir = 'data/lead-water/'
+for (year in 1980:2020) {
+  data_reponse = httr::GET(sprintf(data_url, year, year), httr::progress())
+  station_reponse = httr::GET(sprintf(station_url, year, year), httr::progress())
+  data_water = read.csv(text=httr::content(data_reponse, "text"))
+  station = read.csv(text=httr::content(station_reponse, "text"))
+  # Merge station info on
+  data_water = data_water %>%
+    left_join(station %>% select(MonitoringLocationIdentifier, StateCode, 
+                                 CountyCode, LatitudeMeasure, LongitudeMeasure, 
+                                 MonitoringLocationTypeName,
+                                 contains('VerticalMeasure'), contains('VerticalAccuracy')),
+              by = 'MonitoringLocationIdentifier')
+  # Save to file
+  write_csv(data_water, paste0(data_dir, 'lead_water_US_', year, '.csv'))
+}
+
+
+data_list = list()
+n = 1
+for (year in 1980:2020) {
+  # Read data
+  data_water = read_csv(paste0(data_dir, 'lead_water_US_', year, '.csv'))
+  # Filter data
+  data_list[[n]] = data_water %>%
+    filter(ActivityMediaSubdivisionName == 'Surface Water',
+           ResultSampleFractionText == 'Dissolved') %>%
+    mutate(date = as.Date(ActivityStartDate, tz=ActivityStartTime.TimeZoneCode),
+           year = year(date),
+           month = month(date),
+           y_m = floor_date(date, "month")) %>%
+    # select(ResultMeasureValue)
+    mutate(ResultMeasureValue = ifelse(
+      !is.na(ResultDetectionConditionText) & (ResultDetectionConditionText == "Not Detected" | ResultDetectionConditionText == "*Non-detect"),
+      0, as.numeric(ResultMeasureValue))) %>%
+    group_by(StateCode, y_m) %>%
+    summarise(mean_lead = mean(ResultMeasureValue, na.rm=T))
+  n = n + 1
+}
+
+
+```
+
+
+```{r}
+data_water = bind_rows(data_list)
+# monthly plot
+data_water %>%
+  group_by(y_m) %>%
+  summarise(mean_lead = mean(mean_lead, na.rm=T)) %>%
+    ggplot() + geom_line(aes(x=y_m, y=mean_lead))
+
+# annual plot
+data_water %>%
+  mutate(y = year(y_m)) %>%
+  group_by(y) %>%
+  summarise(mean_lead = mean(mean_lead, na.rm=T)) %>%
+    ggplot() + geom_line(aes(x=y, y=mean_lead)) +
+  xlab('Year') + ylab('Mean Lead (μg/liter, simple average)') +
+  ggtitle('Mean Lead Concentration in the Water', subtitle='simple annual average over all US observations')
+  
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

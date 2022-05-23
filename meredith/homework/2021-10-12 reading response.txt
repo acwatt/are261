@@ -1,0 +1,15 @@
+Market Dynamics Ch 4 (Dorceta Taylor)
+I've been living in somewhat of a liberal bubble for most of my adult life, so I'm a little out of touch with what the true, honest preferences are for common rural White folks where I grew up. This reading has me thinking more deeply about what will motivate me to choose a neighborhood in 5-10 years, when I have the income to choose. On one hand, I don't think I mind any mix of racial groups in a neighborhood and generally prefer to live near people with different backgrounds than myself. But also as "good liberal", I think about issue of gentrification and want to be sure I'm not contributing to a problem by moving into a minority neighborhood, even if my intensions are good. I mention this because there are many subtlties to understanding people's motivations for moving and living in certian neighborhoods -- and I think it's generally difficult to illicit people's honest motivations about race. Even if we do get accurate information about Whites that don't want to live in majority Black neighborhoods, it's unclear to me what the underlying cause is. I would like to read more about how people rationalize behaviors that perpetuate racial devides with the nuances of racist and classist attitudes.
+
+Regarding the clustering of facilities section, it also got me thinking about how clustering analyses could be used in other places, like how private air pollution monitors cluster in certian places.
+
+In the Path of Least Resistance section, without reading the papers mentioned, most of the research described sounds like it suffers from selection bias and potential reverse causation -- companies try to place facories in their first most desired location but due to political action of the residents, end up siting in locations with lower political engagement.
+
+The last section was particulaly important for me. A reminder that racial differences are stongly autocorrellated with a long history in the US of severe discrimination and abuse. Why did Black land buyers choose to settle in Hyde Park? It was the only place they could build a life. Severe historical constraints are important factors that I need to consider in my future research.
+
+
+
+Depro, Timmins, O'Neil
+I love this paper -- showing parameters of interest have not been identified for a while is exciting! The examples make it clear that it's an issue. I definitely don't understand how they address the issue though. I don't get how you can use % of race in census tracts in 2000 and 2010 to estimate the probability of people moving between specific tracts.
+
+I think the final point is *really* important: we can observe differences in the MWTP to avoid pollution, but because of differences in incomes and the diminishing marginal utiltiy of income, Whites can just be more willing to trade off "other consumption" for a reduction in pollution exposure.

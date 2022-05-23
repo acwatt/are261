@@ -5,6 +5,7 @@ output:
   bookdown::pdf_document2:
     toc: true
     toc_depth: 2
+fontsize: 12pt
 header-includes:
    - \usepackage{dcolumn}
    - \usepackage{bbm}
@@ -40,8 +41,7 @@ fig_w = 6
 
 
 
-```{r packages, results='hide', message=FALSE, echo=F, eval=T}
-# install.packages("bookdown")
+```{r packages, include=F, eval=T}
 library(tidyverse)
 library(haven)
 library(fs)  # file handling
@@ -66,11 +66,15 @@ plot_theme1 = theme(legend.title = element_blank(),
 
 \newpage
 <!--=========================================================================-->
-# Replication
+# Replication of Figure 1
 <!--=========================================================================
 Download NOx emissions data from 2002 and 2005 at the unit level for Acid Rain
 units from the EPA’s Air Program Markets Data (formerly the Clean Air Markets Database). Recreate
 Figure 1 from the paper, though using only year 2002 and 2005 data.-->
+
+\def\nox{NO$_{x}$}
+\newcommand\one[1]{\mathbf{1}\{#1\}}
+\def\ozone{\text{Ozone Season}}
 
 ```{r Load Data, results='hide', echo=F, warning=F, message=F, cache=cache_chunks}
 # Data labels
@@ -80,28 +84,14 @@ variable_labels <- setNames(as.character(variable_labels_df$Definition), variabl
 states_df = read_csv('nbp_states.csv', show_col_types=F) %>%
     left_join(., read_csv('state_abbr_lookup.csv', show_col_types=F), by = c('state' = 'State'))
 # load data
-data = bind_rows(lapply(dir_ls('.', recurse=T, regexp='emission_(.)*(.csv)'), read_csv, show_col_types=F)) %>%
+data = bind_rows(lapply(dir_ls('./data/', recurse=T, regexp='emission_(.)*(.csv)'), read_csv, show_col_types=F)) %>%
     Hmisc::upData(., labels = variable_labels) %>%
-    filter(State %in% states_df$Postal)  # filter in only NBP participating states
+    mutate(nbp = ifelse(State %in% states_df$Postal, 1, 0))  # NBP participating states
 ```
 
-Possible columns:
-State, Facility Name, Facility ID (ORISPL), Unit ID, Associated Stacks, Date, Year, Program(s), Operating Time, Gross Load (MW-h), Steam Load (1000lb), SO2 (tons), Avg. NOx Rate (lb/MMBtu), NOx (tons), CO2 (short tons), Heat Input (MMBtu), EPA Region, NERC Region, County, Source Category, Facility Latitude, Facility Longitude, Owner, Operator, Representative (Primary), Representative (Secondary), SO2 Phase, NOx Phase, Operating Status, Unit Type, Fuel Type (Primary), Fuel Type (Secondary), SO2 Control(s), NOx Control(s), PM Control(s), Hg Control(s)
-
-Come back to think about:
-- Operating Time
-- Avg. NOx Rate (lb/MMBtu)
-- Heat Input (MMBtu)
-- Source Category
-- latitude & longitude
-- NOx phase
-- operating status
-- unit type, fuel types
-- pollution controls
-
-```{r Create Variables, echo=F, cache=cache_chunks}
+```{r Create Variables, include=F, cache=cache_chunks}
 df = data %>%
-    select(State, 'Facility ID (ORISPL)', Date, Year, 'NOx (tons)', County, 'Operating Time') %>%
+    select(State, 'Facility ID (ORISPL)', Date, Year, 'NOx (tons)', County, 'Operating Time', nbp) %>%
     rename(state=State, id='Facility ID (ORISPL)', date=Date, year=Year, nox='NOx (tons)', county=County, operating_time='Operating Time') %>%
     mutate(day_of_year = lubridate::yday(date),
            day_of_week = lubridate::wday(date, label=T, week_start=3),  # reference category = Wednesday
@@ -110,33 +100,41 @@ df = data %>%
     filter(!is.na(nox))
 ```
 
-These estimates are obtained from an OLS regression of NO x emissions on six 
+We wish to replicate Figure 1 from Deschênes et al. (2017), which depicts total
+average daily \nox emissions from all NBP-participating states in 2001-2002
+compared to 2005-2007. \textbf{Since Missouri only joined the NBP market in 2007,
+Missouri is considered a non-NBP state for the purposes of this analysis.}
+
+These estimates are obtained from an OLS regression of \nox emissions on six 
 day-of-week indicators and a constant. The values in the graph equal the constant
 plus the regression residuals, so that the graph depicts fitted values for the
 reference category (Wednesday).
 
 
 ## Data
-\def\nox{NO$_{x}$}
+
 Data for \nox emssions in 2002 and 2005 for states participating in the EPA's 
 Nitrogen Oxides (\nox) Budget Program (NBP) were downloaded from the EPA's 
 Air Markets Program Data database. Facilities missing \nox data for a given day
-that also had measured Operating Time of 0 are assumed to have 0 \nox for that day.
+that also had measured Operating Time of 0 are assumed to have 0 \nox emissions 
+for that day.
 
 ## Total Daily Average \nox Emissions
 
 Figure \@ref(fig:Figure1) depicts total
-daily average \nox emissions over the year, comparing 2002 to 2005 emissions as
+daily average \nox emissions over the year, comparing 2002 to 2005 emissions from
+NBP-participating states as
 pre- and post-treatment observations. Even as a simple comparison, there's a
 dramatic affect on \nox emissions during the days of the year when the
 NBP-participating states are required to restrict their emissions.
 
-```{r total daily mean nox, message=F, echo=F, cache=cache_chunks}
+```{r total daily mean nox, include=F, cache=cache_chunks}
 # OLS regression of NOx emissions on six day-of-week indicators and a constant
 # reference category = Wednesday
-reg_fig1 = lm(nox ~ day_of_week, data=df)
+reg_fig1 = lm(nox ~ day_of_week, data=df %>% filter(nbp == 1))
 # nox_hat = constant plus the regression residuals
 df_daily_sums = df %>% 
+    filter(nbp == 1) %>%  # filter in only NBP participating states
     mutate(nox_hat = reg_fig1$coefficients['(Intercept)'] + reg_fig1$residuals) %>%
     group_by(day_of_year, year) %>%
     summarise(nox_daily_sum = sum(nox_hat, na.rm=T)/1000)
@@ -171,22 +169,33 @@ this approach.-->
 
 
 ## The econometric equation
+
+To examine the NBP effect on the Eastern states in 2005 (a treatment on the
+treated estimate), we consider only emissions from Eastern states (those
+participating in the NBP) in 2005 so I suppress the redundant $y$
+subscript on $NOx_{s,d,y}$ (all will have $y=2005$).
+
 \vspace{1em}
 \begin{align}
-NOx_t &= \beta_0 + \beta_1\cdot t + \beta_2\cdot t^2 + \gamma\cdot\mathbbm{1}(\text{NBP Operating at }t)
-    + \varepsilon_t \label{eq:polynomial}\\[1em]
-\text{where } t &= \text{day of the year (an integer between 1 and 365)} \nonumber \\
-    \mathbbm{1}(\text{NBP Operating at }t) &= \text{ozone season indicator; 1 if $t\in$ [121, 273] (the ozone season*)} \nonumber \\
-    NOx_t &= \text{sum of average daily \nox emissions from NBP states on day }t \nonumber
+NOx_d &= \beta_0 + \beta_1\cdot d + \beta_2\cdot d^2 + \tau D_{d} +
+    \varepsilon_d \label{eq:polynomial}\\[1em]
+\text{where } \hspace{4em} & \nonumber \\
+d &= \text{day of the year}\in\{1,2,...,365\} \nonumber \\
+D_{d} &= \text{ozone season indicator; 1 if $d\in$ [121, 273] (the ozone season*)} \nonumber \\
+NOx_d &= \frac{1}{20}\sum\limits_{s\in East} NOx_{s,d,2005} \nonumber\\
+    &= \text{sum of average daily \nox emissions from the 20 NBP states on day }d \nonumber \\
+NOx_{s,d,y} &= \text{average daily \nox emissions from NBP state $s$ on day $d$ in year $y$}\nonumber
 \end{align}
-*The ozone season is May-September. May 1$^\text{th}$, 2005 is the 121$^\text{st}$
-day of the year and September 30$^\text{th}$, 2005 is the 273$^\text{rd}$
-day of the year.
+*The ozone season is May-September. May 1$^\text{th}$ is the 121$^\text{st}$
+day of the year and September 30$^\text{th}$ is the 273$^\text{rd}$
+day of the year, in non-leap years.
+
+
 
 
 ```{r data: 2005 aggregation, echo=F, results='hide'}
 df_2005_agg = df %>%
-    filter(year == 2005) %>%
+    filter(year == 2005, nbp == 1) %>%
     group_by(day_of_year) %>% 
     summarise(nox_daily_sum = sum(nox, na.rm=T)/1000,
               year = mean(year), month=mean(month)) %>%
@@ -235,7 +244,7 @@ restricting the data to a 2-month window around the end of the policy in 2005
 the \nox Budget Trading Program in October 2005 was an increase in \nox emissions of about
 `r -round(poly2_coef, 3)` thousand tons.
 
-
+\newpage
 ## Inference and weighting in the polynomial RD
 
 Because I have aggregated the data to the day-year-state level, the regression of
@@ -264,12 +273,21 @@ b. Report the estimated effect of the NBP on NOx Emissions.-->
 ## The econometric equation
 \vspace{1em}
 \begin{align}
-NOx_t &= \beta_0 + \beta_1\cdot t + \beta_2\cdot t^2 \nonumber \\
-    &+ \beta_3\cdot t \cdot\mathbbm{1}(\text{NBP Operating at }t) 
-    + \beta_4\cdot t^2 \cdot\mathbbm{1}(\text{NBP Operating at }t) \label{eq:spline}\\
-    &+ \gamma\cdot\mathbbm{1}(\text{NBP Operating})_t
-    + \varepsilon_t \nonumber
+NOx_d &= \beta_0 + \beta_1\ d + \beta_2\ d^2 +
+    \beta_3\ d\ D_{d} + \beta_4\ d^2\ D_{d} +
+    \tau\ D_{d} + \varepsilon_d \label{eq:spline} \\
+\text{where } \hspace{4em} & \nonumber \\
+d &= \text{day of the year (an integer between 1 and 365)} \nonumber \\
+D_{d} &= \text{ozone season indicator; 1 if $d\in$ [121, 273] (the ozone season*)} \nonumber \\
+NOx_d &= \frac{1}{20}\sum\limits_{s\in East} NOx_{s,d,2005} \nonumber\\
+    &= \text{sum of average daily \nox emissions from the 20 NBP states on day }d \nonumber \\
+NOx_{s,d,y} &= \text{average daily \nox emissions from NBP state $s$ on day $d$ and year $y$}\nonumber
 \end{align}
+*The ozone season is May-September. May 1$^\text{th}$, 2005 is the 121$^\text{st}$
+day of the year and September 30$^\text{th}$, 2005 is the 273$^\text{rd}$
+day of the year.
+
+
 
 ## Spline Regression Discontinuity estimates at the beginning and end of the season
 
@@ -305,24 +323,84 @@ poly4_coef = reg_poly4$coefficients[2]
 The second specification of the spline regression discontinuity is
 estimating the discontinuity around the end of the ozone season -- estimating
 the impact of the restrictions turning off on October 1st. Column 2 of Table
-\@ref(tab:polynomial-regs) show the estimation of equation \eqref{eq:polynomial} after
+\@ref(tab:polynomial-regs) show the estimation of equation \eqref{eq:spline} after
 restricting the data to a 2-month window around the end of the policy in 2005
 (September-October). The estimated effect of removing the restrictions of 
 the \nox Budget Trading Program in October 2005 was an increase in \nox emissions of about
 `r -round(poly4_coef, 3)` thousand tons.
 
 
+
+
+
+
 \newpage
 <!--=========================================================================-->
 # Cross-Sectional Comparison
 <!--=========================================================================
-Using the same daily data as in part (2), using a regression, consider
-an estimator of the effect of the NOx Budget Trading Program on NOx emissions by comparing mean
-emissions in the May-September period against the other months of the year
+Using the same daily data as in part (2), using a regression, consider an
+estimator of the effect of the NOx Budget Trading Program on NOx emissions by
+comparing mean emissions in the May-September period against the other months of
+the year
 
 a. Write out the econometric equation corresponding to this estimator
 
 b. Report the estimated effect of the NBP on NOx emissions by applying this estimator in 2005.-->
+
+## The econometric equation
+
+To examine the NBP effect on the Eastern states in 2005 (a treatment on the
+treated estimate), we consider only emissions from Eastern states (those
+participating in the NBP) in 2005 so I suppress the redundant $y$
+subscript on $NOx_{s,d,y}$ (all will have $y=2005$).
+
+\vspace{1em}
+\begin{align}
+NOx_{s,o} &= \beta + \tau\ D_o + \varepsilon_{s,o} \label{eq:cross-section}\\[2em]
+\text{where } \hspace{4em} & \nonumber \\
+s &= \text{state (of NBP participating states)} \nonumber \\
+o &= \text{ozone season (Summer or Winter*)} \nonumber \\
+D_o &= \text{ozone season indicator; 1 if $o$ = Summer} \nonumber \\
+NOx_{s,o} &= D_o\frac{1}{153}\sum\limits_{d\in o} NOx_{s,d,2005} +
+    (1-D_o)\frac{1}{212}\sum\limits_{d\in o} NOx_{s,d,2005} \nonumber\\
+    &= \text{season mean average daily \nox emissions from NBP state }s \nonumber\\
+NOx_{s,d,y} &= \text{average daily \nox emissions from NBP state $s$ on day $d$ and year $y$}\nonumber
+\end{align}
+*The ozone season is May-September, so I am calling Summer May-September, and
+Winter is Jan-April and October-December.
+
+
+
+
+## Cross Sectional estimates for ozone-season average daily emissions
+
+
+```{r data: season means, include=F}
+df_ozone_season_mean = df %>%
+    filter(year == 2005, nbp == 1) %>%
+    mutate(ozone_season = if_else(day_of_year %in% lubridate::yday('2005-05-01'):lubridate::yday('2005-09-30'), 1, 0)) %>%
+    group_by(state, ozone_season) %>%
+    summarise(nox_dm_season = mean(nox, na.rm=T)) %>%
+    Hmisc::upData(., labels = list(nox_dm_season = "Mean total daily NOx emissions from NBP states for season (tons)"))
+```
+
+```{r cross sectional season means regression, echo=F}
+reg_cross = df_ozone_season_mean %>% 
+    lm(nox_dm_season ~ ozone_season, data=.)
+
+cross_coef = reg_cross$coefficients[2]
+```
+
+The cross-sectional specification is estimating the effects of the NBP on
+average daily emissions across states, where daily emissions are averaged at
+the state-ozone-season level -- estimating the impact of the restrictions being
+on all Summer. Column 1 of Table \@ref(tab:cross-sectional-reg) show the estimation
+of equation \eqref{eq:cross-section} after restricting the data to
+NBP-participating states in 2005. The estimated average effect of imposing the
+restrictions of the \nox Budget Trading Program in 2005 was a reduction in daily
+\nox emissions of about `r -round(cross_coef, 3)` tons per state.
+
+
 
 
 
@@ -334,16 +412,76 @@ b. Report the estimated effect of the NBP on NOx emissions by applying this esti
 <!--=========================================================================-->
 # Pre/post differences-in-differences
 <!--=========================================================================
-Use daily data so each observation represents total emissions
-from the Eastern U.S. or from the Western U.S. in a given calendar date. Consider an estimator of the
-effect of the NOx Budget Trading Program on NOx emissions by taking the difference between May-
-September versus the rest of the year, and comparing this difference after the market began against
-that difference before the market began.
+Use daily data so each observation represents total emissions from the Eastern
+U.S. or from the Western U.S. in a given calendar date. Consider an estimator of
+the effect of the NOx Budget Trading Program on NOx emissions by taking the
+difference between May-September versus the rest of the year, and comparing
+this difference after the market began against that difference before the market
+began.
 
 a. Write out the econometric equation corresponding to this estimator.
 
 b. Report the estimated effect of the NBP on NOx emissions by applying this estimator for the
 Eastern U.S.-->
+
+## The econometric equation
+
+To examine the pre-post NBP effect on the Eastern states (a treatment on the 
+treated estimate), we consider only emissions from Eastern states (those participating in the NBP)
+so I suppress the redundant $r$ subscript (all will have $r=East$).
+
+\vspace{1em}
+\begin{align}
+NOx_{d,y} &= \beta_0 + \beta_1\one{y=2005} + \beta_2\one{d\in \ozone} +
+    \tau D_{d,y} + u_{y} + \varepsilon_{d,y} \label{eq:pre-post-diff}\\[2em]
+\text{where } \hspace{4em} & \nonumber \\
+d &= \text{day of the year}\in\{1,2,...,365\} \nonumber \\
+y &= \text{year}\in\{2002, 2005\} \nonumber \\
+\ozone &= [121,273]\cap\mathbb{N};\text{ days of the year in the NBP season} \nonumber\\
+D_{d,y} &= \text{NBP participation indicator; 1 if }y=2005\ \&\ d\in \ozone \nonumber \\
+NOx_{d,y} &= \frac{1}{20}\sum\limits_{s\in East} NOx_{s,d,y}^* \nonumber\\
+    &= \text{region-mean average daily \nox emissions from states in the East on day $d$ in year $y$} \nonumber\\
+NOx_{s,d,y} &= \text{average daily \nox emissions from all units in NBP state $s$ on day $d$ in year $y$} \nonumber
+\end{align}
+
+*The states considered Eastern are those 20 states participating in the NBP
+(including the District of Columbia).
+
+
+
+
+## Pre/post Diff-in-Diff estimates for East
+
+```{r data: pre-post-means, include=F}
+df_diff = df %>%
+    group_by(day_of_year, year, nbp) %>%
+    summarise(nox_dm_region = sum(nox, na.rm=T)/1000) %>%
+    Hmisc::upData(., labels = list(nox_dm_region = "total daily NOx emissions from NBP states in NBP region (1000s of tons)")) %>%
+    mutate(ozone_season = if_else(day_of_year %in% lubridate::yday('2005-05-01'):lubridate::yday('2005-09-30'), 1, 0),
+           treat = ozone_season*(year==2005)*nbp)
+```
+
+```{r pre-post diffndiff regression, echo=F, include=F}
+reg_pre_post = df_diff %>%
+    filter(nbp == 1) %>%
+    lm(nox_dm_region ~ factor(year) + ozone_season + treat, data=.)
+
+pre_post_coef = reg_pre_post$coefficients[4]
+summary(reg_pre_post) 
+summary(reg_pre_post, cluster="year") 
+```
+
+
+The pre-post differences-in-differences specification is estimating the effects
+of the NBP on total regional daily emissions across the entire NBP region, where
+daily emissions are totaled at the region-day level. Column 1 of Table
+\@ref(tab:diff-regs-short) shows the estimation of $\tau$ in equation
+\eqref{eq:pre-post-diff} after restricting the data to NBP-participating states
+in both 2002 (pre) and 2005 (post). The estimated average effect of imposing the
+restrictions of the \nox Budget Trading Program in the NBP region was a
+reduction in Eastern regional daily \nox emissions of about `r
+-round(pre_post_coef, 3)` thousand tons. This assumes that the 2002 NBP region
+and 2005 NBP region have similar untreated \nox trends.
 
 
 
@@ -363,8 +501,51 @@ a. Write out the econometric equation
 
 b. Report the estimated effects-->
 
+## The econometric equation
+To examine the East-West NBP effect in 2005, we consider only emissions from
+states in 2005, so I suppress the redundant $y$ subscript (all will have $y=2005$).
+
+\vspace{1em}
+\begin{align}
+NOx_{d,r} &= \beta_0 + \beta_1\one{d\in \ozone} + \beta_2\one{r=East} +
+    \tau D_{d,r} + u_{r} + \varepsilon_{d,r} \label{eq:east-west-diff} \\[2em]
+\text{where } \hspace{4em} & \nonumber \\
+d &= \text{day of the year}\in\{1,2,...,365\} \nonumber \\
+r &= \text{region of the US}\in\{East, West\}^* \nonumber \\
+\ozone &= [121,273]\cap\mathbb{N};\text{ days of the year in the NBP season} \nonumber\\
+D_{d,r} &= \text{NBP participation indicator; 1 if }r=East\ \&\ d\in \ozone \nonumber \\
+NOx_{d,r} &= \frac{1}{|r|}\sum\limits_{s\in r} NOx_{s,d,2005} \nonumber\\
+    &= \text{region-mean average daily \nox emissions from $|r|$ states in region $r$ on day $d$ in year 2005} \nonumber\\
+NOx_{s,d,y} &= \text{average daily \nox emissions from all units in NBP state $s$ on day $d$ in year $y$} \nonumber
+\end{align}
+
+*The states considered Eastern are those 20 states participating in the NBP
+(including the District of Columbia).
+Western states are non-NBP participating states, excluding Alaska and Hawaii; 
+a total of 50 + 1 (D.C.) - 2 (AK, HI) - 20 (Eastern) = 29 states.
 
 
+## East/West Diff-in-Diff estimates for 2005
+
+```{r east diffndiff regression, echo=F}
+reg_east_west = df_diff %>%
+    filter(year == 2005) %>%
+    lm(nox_dm_region ~ nbp + ozone_season + treat, data=.)
+# nbp = 1 if east
+
+east_west_coef = reg_east_west$coefficients[4]
+```
+
+The East-West differences-in-differences specification is estimating the effects
+of the NBP on total regional daily emissions across the entire NBP region, where
+daily emissions are totaled at the region-day level. Column 2 of Table
+\@ref(tab:diff-regs-short) shows the estimation of $\tau$ in equation
+\eqref{eq:east-west-diff} after restricting the data to 2005 in both East (NBP)
+and West (non-NBP) states. The estimated average effect of imposing the
+restrictions of the \nox Budget Trading Program in 2005 was a reduction in
+Eastern regional daily \nox emissions of about `r -round(east_west_coef, 3)`
+thousand tons. This assumes that the East and West regions have similar untreated
+\nox trends.
 
 
 
@@ -375,8 +556,8 @@ b. Report the estimated effects-->
 <!--=========================================================================-->
 # Differences-in-differences-in-differences
 <!--=========================================================================
-Estimate the effect of the NBP on NOx emissions by
-comparing summer versus winter, pre versus post, and East versus West, in a single equation.
+Estimate the effect of the NBP on NOx emissions by comparing summer versus
+winter, pre versus post, and East versus West, in a single equation.
 
 a. Write out the econometric equation
 
@@ -384,9 +565,95 @@ b. Report the estimated effect of the NBP
 
 c. Briefly explain how you deal with inference and weighting and why you use this approach.-->
 
+## The econometric equation
+\vspace{1em}
+\begin{align}
+NOx_{d,y,r} &= \beta_0 + \beta_1\one{y=2005} + \beta_2\one{d\in \ozone} + \beta_3\one{r=East} \nonumber \\
+    &+ \beta_4\one{y=2005\ \&\ d\in \ozone} + \beta_5\one{y=2005\ \&\ r=East}\label{eq:triple-diff} \\
+    &+ \beta_6\one{d\in \ozone\ \&\ r=East} +
+    \tau D_{d,y,r} + u_{y,r} + \varepsilon_{d,y,r} \nonumber \\[2em]
+\text{where } \hspace{4em} & \nonumber \\
+r &= \text{region of the US}\in\{East, West\}^* \nonumber \\
+d &= \text{day of the year}\in\{1,2,...,365\} \nonumber \\
+y &= \text{year}\in\{2002, 2005\} \nonumber \\
+\ozone &= [121,273]\cap\mathbb{N};\text{ days of the year in the NBP season} \nonumber\\
+D_{d,y,r} &= \text{NBP participation indicator; 1 if }y=2005\ \&\ d\in \ozone\ \&\ r=East \nonumber \\
+NOx_{d,y,r} &= \frac{1}{|r|}\sum\limits_{s\in r} NOx_{s,d,y} \nonumber\\
+    &= \text{region-mean average daily \nox emissions from states in region $r$ on day $d$ in year $y$} \nonumber\\
+NOx_{s,d,y} &= \text{average daily \nox emissions from all units in NBP state $s$ on day $d$ in year $y$} \nonumber
+\end{align}
+
+*The states considered Eastern are those 20 states participating in the NBP
+(including the District of Columbia).
+Western states are non-NBP participating states, excluding Alaska and Hawaii; 
+a total of 50 + 1 (D.C.) - 2 (AK, HI) - 20 (Eastern) = 29 states.
 
 
 
+
+## Triple differences estimates over season, year, and region
+
+```{r triple diffndiff regression, echo=F}
+reg_triple_diff = df_diff %>%
+    lm(nox_dm_region ~ factor(year) + ozone_season + nbp 
+       + factor(year)*ozone_season + factor(year)*nbp + ozone_season*nbp
+       + treat, data=.)
+# nbp = 1 if east
+
+triple_diff_coef = reg_triple_diff$coefficients[5]
+```
+
+
+The triple differences-in-differences specification is estimating the effects
+of the NBP on total regional daily emissions across the entire NBP region, where
+daily emissions are totaled at the region-day level. Column 3 of Table
+\@ref(tab:diff-regs-short) shows the estimation of $\tau$ in equation
+\eqref{eq:triple-diff}. The estimated average treatment effect of imposing the
+restrictions of the \nox Budget Trading Program was a reduction in
+Eastern regional daily \nox emissions of about `r -round(triple_diff_coef, 3)`
+thousand tons.
+
+
+\newpage
+## Inference and weighting in triple differences
+
+Since there are more states in the Western region (29 vs. 20), and we are comparing
+regional average emissions, we are implicitly weighting the Eastern region states
+more than the Western region states -- we are comparing regional changes. If we
+wanted to estimate effects on the average state, we could weight the regression
+using weights proportional to the inverse of the number of states in each
+region. We could also re-weight to estimate the average unit effect.
+
+Similarly, since there are only 120 days before the NBP season and 153 days in
+the NBP season, we are implicitly putting more weight on the days before the
+season starts than on the days during the season -- we estimating average season
+daily changes. If we were interested in the effect on an average day, we could
+re-weight proportional to the inverse of the number of days in the season
+(May-Sept vs. Oct-April).
+
+I choose to leave the regressions unweighted because it makes the analysis clear
+-- the \nox Budget Trading Program reduced the Eastern regional daily \nox
+emissions by about `r -round(triple_diff_coef, 3)` thousand tons. If we are
+asking serious questions about climate change, the regional level is a fine
+level to investigate policy implications. If we believe this is close to the
+true estimate, and we think this is externally valid and can be applied to the
+rest of the US, we could estimate first-order affects of a national program by
+scaling up by the ratio of total US \nox emissions that would be regulate to
+total eastern \nox emissions currently being regulated. This of course ignores
+spillover and interaction effects between the regions in the market -- the
+market will now have many more participants and could become more efficient at
+allocating budgeted emissions to firms with higher marginal costs.
+
+Inference of the NBP treatment effect based on $\tau$ in Equation
+\eqref{eq:triple-diff} hinges on the assumption that, to the extent that \nox
+has different trends in the Eastern region than the Western region, the
+differences affect the emissions in the non-ozone and ozone seasons similarly.
+That seems fairly credible since both regions include major coastal cities and
+overlap most of their range of latitude (which would affect seasonality).
+
+Because we are using region-level data, the standard errors are already clustered
+at the region level, which is desired because that is our level of
+policy analysis.
 
 
 
@@ -396,13 +663,47 @@ c. Briefly explain how you deal with inference and weighting and why you use thi
 <!--=========================================================================-->
 # Discussion of Estimators
 <!--=========================================================================
-What are the potential threats to internal validity of the estimator in equation (7)? Which of the
-estimators in parts (1)-(7) represents the most reasonable approach to measuring the effects of this
-program, and why?-->
+What are the potential threats to internal validity of the estimator in equation
+(7)? Which of the estimators in parts (1)-(7) represents the most reasonable
+approach to measuring the effects of this program, and why?-->
+
+## Internal Validity
+
+Assume \nox trends differ between the eastern and western regions -- then, for
+internal validity of $\hat\tau$ from \eqref{eq:triple-diff}, we need that those
+trends differ similarly for non-ozone and ozone seasons. So we should concern
+ourselves with differences between the regions and seasons causing the
+difference between seasons to trend differently between the regions (aside from
+the effect of the program). For example, if something happened in the summer of
+2005 in the eastern region to change the \nox emissions, it would pose a threat
+to internal validity. This is a rather obvious statement -- an event that co-occurs
+with our treatment is, of course, going to confound our treatment.
+
+Leakage is a large concern here if \nox-producing firms have the ability to
+transfer production to non-NBP states between the start of the NBP program in
+2003 and the NBP season in 2005 -- we will be over-estimating the effects of
+the program because the difference between eastern and western states will be
+artificially larger since \nox is moving from eastern states to western. 
+This could possibly happen only during the summer periods when the NBP is operating
+due to market pressures -- the higher production costs during that time lead
+real-time prices to be higher, so some firms using products produced by \nox-emitting
+firms will choose to import those products from other states if the cost of transport
+plus the cost of the item is lower than than the increases summer price of the
+product within the NBP state.
 
 
+## Preferred Specification
 
-
+Of the methods presented to estimate the effect of the NBP program, I prefer
+the triple differences approach. Since I do not have any control variables, the
+other specifications almost surely suffer from sever omitted variable bias. 
+Triple differences is robust to much OVB because it differences out any
+year-invariant, unit-invariant, and season-invariant unobserved variables that
+may be correlated with the treatment. The eastern states over the summer 
+period in 2005 is still a very large unit of treatment that could be
+different from the western region during summer of 2005 for many reasons, but
+given the nature of the program, I believe this is the best estimator of the 
+NBP effects (of the selection presented here).
 
 
 
@@ -412,11 +713,132 @@ program, and why?-->
 <!--=========================================================================-->
 # EPA emissions caps
 <!--=========================================================================
-The EPA announced emissions caps on emissions for each year of the NBP. Why not use those caps
-to measure the effect of the program, rather than using these regressions?-->
+The EPA announced emissions caps on emissions for each year of the NBP. Why not
+use those caps to measure the effect of the program, rather than using these
+regressions?-->
+
+If the EPA announced caps on emissions for the NBP years, why not just simply
+use those caps as a measure of \nox emissions reductions? Many firms
+banked their allowances for future years, so it is unclear which years' emissions
+are being affected by a single year's cap.
 
 
 
+
+
+\newpage
+<!--=========================================================================-->
+<!-- # Marginal Willingness to Pay for Improvements in Air Quality -->
+<!--=========================================================================-->
+
+
+
+
+<!--=========================================================================-->
+# First-order Conditions for the Consumer
+<!--=========================================================================
+Show the first-order conditions for the consumer’s problem. Explain the meaning
+of each in words.-->
+
+\def\L{\mathcal{L}}
+\newcommand{\dd}[2]{\frac{\partial#1}{\partial#2}}
+\newcommand{\totald}[2]{\frac{d#1}{d#2}}
+\begin{align*}
+\intertext{Let $s(c,a)$ be the number of hours per week spent sick by a consumer, which depend on}
+c, & \text{ the concentration of pollution being faced, and} \\
+a, & \text{ the amount of defensive behavior chosen} \\
+\intertext{Then the consumer maximizes their utility by choosing the amount of a numeraire good $X$,
+leisure hours $f$, and defensive behavior $a$ to purchase (and by elimination, the amount they work),
+subject to their budget constraint:}
+\max\limits_{X,f,a} u(X,f,s(c,a)) &\quad s.t. \quad I + p_w(T-f-s)\geq X + p_a a
+\intertext{so the first-order conditions for the consumer result from derivatives
+of $X,f,$ and $a$:}
+\L &= u(X,f,s(c,a)) + \lambda(I + p_w(T-f-s(c,a)) - X - p_a a) \\[1em]
+\text{(FOC1)}\quad \dd{\L}{X} &= \dd{u}{X} -\lambda = 0 \\
+    &\implies \dd{u}{X} = \lambda \\[1em]
+\text{(FOC2)}\quad \dd{\L}{f} &= \dd{u}{f} -\lambda p_w = 0 \\
+    &\implies \dd{u}{f} = \lambda p_w = \dd{u}{X} p_w \\[1em]
+\text{(FOC3)}\quad \dd{\L}{a} &= \dd{u}{a} -\lambda p_w \dd{s}{a}  -\lambda p_a 
+    = \dd{u}{s}\dd{s}{a} -\lambda p_w \dd{s}{a} -\lambda p_a = 0 \\
+    &\implies \dd{u}{s} = \lambda \left(p_w + p_a\left(\dd{s}{a}\right)^{-1} \right) \\
+    &\implies \frac{1}{\lambda}\dd{u}{s} = \left(p_w + p_a\left(\dd{s}{a}\right)^{-1} \right) \\
+\text{(FOC4)}\quad \dd{\L}{\lambda} &= I + p_w(T-f-s(c,a)) - X - p_a a = 0 \\
+    &\implies I + p_w(T-f-s(c,a)) =  X + p_a a
+\end{align*}
+
+Since $X$ is the numeraire good, (FOC1) can be interpreted as the consumer chooses
+to maximize their utility by increasing $X$ until their marginal utility from
+another unit of $X$ is equal to the shadow price of increasing their budget (which
+is measured in units of $X$ since it's the numeraire good).
+
+(FOC2) tells us the consumer increases their amount of leisure hours until their
+marginal utility of leisure is equal to their wage rate times the shadow price
+of increasing their budget. Because they need to satisfy all FOCs, we know from
+(FOC1) that, at the optimum, $\lambda$ will be the marginal utility of $X$. Thus,
+to maximize their utility, the consumer will increase their leisure until it equals
+the relative wage times the marginal utility of $X$ (the relative wage $p_w$ is
+the number of hours they need to work to purchase one unit of $X$). So this means:
+only take more leisure until another hour of leisure would cost you the utility
+gained from the amount of $X$ consumed paid for by one hour's wages.
+
+(FOC3) is telling us that the rate of substitution between sick hours and $X$ is,
+at the optimal, equal to the difference between the relative wage rate and the
+cost of a sick day averted through purchase of defensive behavior (both in 
+numeraire terms). Since $\partial u / \partial s < 0$,
+the cost of avoiding a sick day through defensive behavior must be larger in
+magnitude than the relative wage rate.
+
+
+(FOC4) just gives us the budget constraint back -- if the budget constraint is
+binding (which we would expect if the utility is convex), then we expect this to
+hold and to get an interior solution to the maximization problem.
+
+
+
+\
+<!--=========================================================================-->
+# Effect of pollution concentration on sickness (Eq. 2)
+<!--=========================================================================
+Derive equation (2).-->
+
+\begin{align*}
+\intertext{Taking the total derivative of the health production function $s(c,a)$
+with respect to pollution concentration $c$, we get}
+\totald{s}{c} = \dd{s}{c} + \dd{s}{a}\dd{a}{c}
+\intertext{Rearranging, we get equation (2)}
+\dd{s}{c} = \totald{s}{c} - \dd{s}{a}\dd{a}{c}
+\end{align*}
+
+
+\newpage
+<!--=========================================================================-->
+# Interpretation of derivatives of $s$
+<!--=========================================================================
+Explain in words what ds/dc and ∂s/∂a represent. Why is it difficult to estimate
+∂s/∂a?-->
+
+The total derivative of time spent sick $s$ with respect to pollution
+concentration $c$ -- $\totald{s}{c}$ -- is the sum of the direct effect of
+increased pollution on the number of sick days a consumer takes ($\dd{s}{c}$)
+and the indirect affect that changing defensive behavior in reaction to
+increased pollution has on sick days ($\dd{s}{a}\dd{a}{c}$). Here, $\dd{s}{a}$ 
+represents the change in sick days as we increase our defensive behavior (we would
+expect $\dd{s}{a}<0$). If pollution
+increases, it would make sense if a consumer chose to increase the amount they
+spent on defensive behaviors (increasing the amount of asthma medication they
+take on a smoggy day) so it might be safe to assume $\dd{a}{c}>0$. This increase in
+defensive behavior has a mitigating effect on sick days (hopefully!).
+
+It is hard to get data on people's defensive behavior: How many breaths of their
+inhaler did they take each day; how long did people spend outside vs inside and
+what is the difference in pollution concentration between outside and inside; how
+many days of work did someone skip because they wanted to protect their health
+(skipped as a preventative measure, which would be hard to disentangle from
+people taking sick days because they are made sick due to pollution). To measure
+$\dd{s}{a}$, we would need to see how the number of sick days change as people
+use different amounts of defensive behaviors, while keeping concentration constant,
+or have good data on an exogenous shock to people's ability to enage in those behaviors
+and the actual data on the behaviors themselves.
 
 
 
@@ -425,51 +847,59 @@ to measure the effect of the program, rather than using these regressions?-->
 
 \newpage
 <!--=========================================================================-->
-# Marginal Willingness to Pay for Improvements in Air Quality
-<!--=========================================================================-->
-
-
-
-
-<!--=========================================================================-->
-## First-order Conditions for the Consumer
-<!--=========================================================================
-Show the first-order conditions for the consumer’s problem. Explain the meaning of each in words.-->
-
-
-
-
-<!--=========================================================================-->
-## Equation (2) [write title of meaning of Eq2]
-<!--=========================================================================
-Derive equation (2).-->
-
-
-
-
-<!--=========================================================================-->
-## ds/dc [write title of meaning of ds/dc]
-<!--=========================================================================
-Explain in words what ds/dc and ∂s/∂a represent. Why is it difficult to estimate ∂s/∂a?-->
-
-
-
-
-<!--=========================================================================-->
-## Equation (3) [write title of meaning of Eq3]
+# Marginal Willingness to Pay for Clean Air
 <!--=========================================================================
 Derive equation (3)-->
 
+\begin{align*}
+\intertext{The marginal willingness to pay for clean air is the 
+negative of the marginal willingness to pay for an increase in pollution
+concentration $c$. The MWTP for an increase in pollution would be $\dd{\L}{c}$
+(in utils), so dividing by $\lambda$ lets us translate to dollars. Thus the 
+marginal willingness to pay for clean air is}
+MWTP &= -\frac{1}{\lambda}\dd{\L}{c} \\
+&= -\frac{1}{\lambda}\left[\dd{\L}{u}\dd{u}{s}\dd{s}{c} + \dd{\L}{s}\dd{s}{c} \right]\quad\text{by the Envelope Theorem}\\
+\intertext{$\dd{\L}{u}=1$ and $\dd{\L}{s}=-\lambda p_w$, so}
+&= -\frac{1}{\lambda}\left[\dd{u}{s}\dd{s}{c} -\lambda p_w\dd{s}{c} \right]\\
+&= -\frac{1}{\lambda}\dd{u}{s}\dd{s}{c} + p_w\dd{s}{c} \\
+&= -\frac{1}{\lambda}\dd{u}{s}\left(\totald{s}{c} - \dd{s}{a}\dd{a}{c}\right) + 
+    p_w\dd{s}{c}\quad\text{by Eq. (2)}\\
+&= -\frac{1}{\lambda}\dd{u}{s}\totald{s}{c} + \frac{1}{\lambda}\dd{u}{s}\dd{s}{a}\dd{a}{c} + 
+    p_w\dd{s}{c}\\
+&= -\frac{1}{\lambda}\dd{u}{s}\totald{s}{c} + 
+    \left(p_w + p_a\left(\dd{s}{a}\right)^{-1} \right)\dd{s}{a}\dd{a}{c} + 
+    p_w\dd{s}{c}\quad\text{by (FOC3)}\\
+\intertext{then grouping the $p_w$ terms}
+&= -\frac{1}{\lambda}\dd{u}{s}\totald{s}{c} + 
+    p_w\left(\dd{s}{a}\dd{a}{c} + \dd{s}{c}\right) + p_a\left(\dd{s}{a}\right)^{-1} \dd{s}{a}\dd{a}{c} \\
+&= -\frac{1}{\lambda}\dd{u}{s}\totald{s}{c} + p_w\totald{s}{c} + p_a\dd{a}{c} \quad\text{by Eq. (2)} \\
+\end{align*}
 
 
-
+\newpage
 <!--=========================================================================-->
-## Price of (p_a)
+# Price of defensive behavior
 <!--=========================================================================
-What price does p a in the model describe? What complications does this create in using medications
-to construct empirical analogues to equation (3)?-->
+What price does p a in the model describe? What complications does this create
+in using medications to construct empirical analogues to equation (3)?-->
 
+$p_a$ describes the relative unit cost of avoiding pollution or adapting to pollution
+(defensive behavior). This is relative to the numeraire good in the model, which
+means it would be a trade off between spending income on a defensive behavior 
+(medication) or on "other consumption". Other consumption is hard to measure
+when you just have data on the medications people are taking.
 
+Two more issues that remain are: (1) complete measurement of various defensive 
+behaviors; and (2) accurate measurement of the cost of a particular behavior to
+the consumer. For (1), we might consider a smokey day in the Bay area. There are
+many ways to defend against smokey air -- staying inside, asthma medication, 
+purchasing air filter masks, purchasing indoor air purifiers to increase the
+quality of the indoor air. If we only measure one, we may be missing other 
+important defensive behaviors and mis-measure the aggregate price of defensive behaviors.
+Fro (2), the paper provides a useful example of medication costs -- if we examine
+sticker prices of medications, we will most likely be overestimating the cost
+to the consumer because many consumers have insurance that will pay for a large
+portion of the price.
 
 
 
@@ -512,13 +942,14 @@ constant plus the regression residuals, so that the graph depicts fitted values
 for the reference category (Wednesday). Total daily \nox emissions on y-axis are
 measured in thousands of tons. The sample includes emissions from all the Acid
 Rain Units. NBP participating states include: Alabama, Connecticut, Delaware,
-Illinois, Indiana, Kentucky, Maryland, Massachusetts, Michigan, Missouri, New
-Jersey, New York, North Carolina, Ohio, Pennsylvania, Rhode Island, South
-Carolina, Tennessee, Virginia, West Virginia, and Washington, DC. Facilities
-missing \nox data for a given day that also had measured Operating Time of 0 are
-assumed to have 0 \nox for that day. This slightly affects the regression of
-\nox on the day-of-week indicators, but results in very little difference in
-total sums of daily average \nox emissions.
+Illinois, Indiana, Kentucky, Maryland, Massachusetts, Michigan, New Jersey, New
+York, North Carolina, Ohio, Pennsylvania, Rhode Island, South Carolina,
+Tennessee, Virginia, West Virginia, and the District of Columbia (Missouri did
+not join the market until 2007). Facilities missing \nox data for a given day
+that also had measured Operating Time of 0 are assumed to have 0 \nox for that
+day. This slightly affects the regression of \nox on the day-of-week indicators,
+but results in very little difference in total sums of daily average \nox
+emissions.
 
 
 \newpage
@@ -659,9 +1090,98 @@ data.frame(x = reg_poly4$model$x, y = reg_poly4$model$y, y_hat = reg_poly4$fitte
 
 
 
+
+\newpage
+```{r cross-sectional-reg, results='asis', echo=F, eval=T}
+stargazer(reg_cross,
+          title="NBP Cross-sectional, Seasonal Mean Results for 2005", align=TRUE,
+          header=F, type=table_type,
+          dep.var.caption = "Season-Mean Daily Emissions per state (tons)",
+          dep.var.labels = "",
+          column.labels=c("\\shortstack{Season level \\\\ Cross Section}"),
+          covariate.labels = 'Ozone Season Indicator',
+          keep='ozone_season',
+          label = "tab:cross-sectional-reg",
+          omit.stat = c("f", "rsq", "ser"), model.numbers=F
+)
+```
+
+*Notes*: The season-mean \nox emissions in Table \@ref(tab:cross-sectional-reg)
+are average daily \nox emissions at the state level, averaged over all the days
+in the ozone season (compared to the mean over the the days outside the ozone 
+season).
+
+
+
+\newpage
+```{r diff-regs-short, results='asis', echo=F, eval=T}
+stargazer(reg_pre_post, reg_east_west, reg_triple_diff,
+          title="NBP Differences Regression Results", align=TRUE,
+          header=F, type=table_type,
+          dep.var.caption = "Total Region Daily Emissions (1000 tons)",
+          dep.var.labels = "",
+          column.labels=c("\\shortstack{Pre-Post \\\\ Diff-in-Diff}",
+                          "\\shortstack{East-West \\\\ Diff-in-Diff}",
+                          "\\shortstack{Triple \\\\ Differences}"),
+          covariate.labels = c('NBP Participation'),
+          keep='treat',
+          add.lines = list(c("East only", "\\centering\\text{Yes}", "\\text{No}", "\\text{No}"),
+                           c("2005 only", "\\centering\\text{No}", "\\text{Yes}", "\\text{No}")),
+          label = "tab:diff-regs-short",
+          omit.stat = c("f", "rsq", "ser"), model.numbers=F,
+          notes = c("Region-total daily \\nox  emissions are the sum of total average",
+          "daily \\nox  emissions of all states in each region.")
+)
+```
+
+```{r diff-regs-long, results='asis', echo=F, eval=T}
+stargazer(reg_pre_post, reg_east_west, reg_triple_diff,
+          title="NBP Differences Regression Results", align=TRUE,
+          header=F, type=table_type,
+          dep.var.caption = "Total Region Daily Emissions (1000 tons)",
+          dep.var.labels = "",
+          column.labels=c("\\shortstack{Pre-Post \\\\ Diff-in-Diff}",
+                          "\\shortstack{East-West \\\\ Diff-in-Diff}",
+                          "\\shortstack{Triple \\\\ Differences}"),
+          order = c('treat'),
+          covariate.labels = c('NBP Participation',
+                               'year = 2005',
+                               'East Region',
+                               'Ozone Season (May-Sept)',
+                               'year=2005 \\& Ozone Season',
+                               'year=2005 \\& East Region',
+                               'Ozone Season \\& East Region',
+                               'Intercept'),
+          add.lines = list(c("East only", "\\centering\\text{Yes}", "\\text{No}", "\\text{No}"),
+                           c("2005 only", "\\centering\\text{No}", "\\text{Yes}", "\\text{No}")),
+          label = "tab:diff-regs-long",
+          omit.stat = c("f", "rsq", "ser"), model.numbers=F,
+          notes = c("Region-total daily \\nox  emissions are the sum of total average",
+          "daily \\nox  emissions of all states in each region.")
+)
+```
+
+
+
+
+
+
+
+
+
+
+
+
 \FloatBarrier
 \newpage
 # Code
+
+```{r non-evaluated code block with all code, eval=F, include=F}
+source("ps3.R", local = knitr::knit_global())
+```
+
+```{r non-evaluated code block with all code2, eval=F, code = readLines("ps3.R")}
+```
 
 \newpage
 # References
@@ -680,20 +1200,10 @@ data.frame(x = reg_poly4$model$x, y = reg_poly4$model$y, y_hat = reg_poly4$fitte
 
 
 
-
-<!--
-Final Edits: 
-- name only at end
-- main text explaining the results one by one
-- tables and figures numbered at the end
-- present tables and text as you would for a publishable paper
-- include your code at the end
--->
-
-
 \newpage
 # Authorship Info
 Aaron Watt
+Fall 2021
 
 
 
