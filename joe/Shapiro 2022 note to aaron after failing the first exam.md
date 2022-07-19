@@ -1,0 +1,3 @@
+I think the main challenge was with the other parts.
+
+I don't have much specific feedback. In 2c, there was no discussion, just math that needed words and sentences explaining it, though the math looked fine. 2e would also benefit from more discussion. In 2e, prices include markups, so observing a change in car prices doesn't necessarily tell you about marginal costs. For 2e, you also need to know how the policies affect pollution emissions, and what people's marginal willingness to pay for the pollution is.
