@@ -176,6 +176,16 @@ Contributions:
 
 > Gosnell, List, and Metcalfe, “The Impact of Management Practices on Employee Productivity.”
 - Hawthorne productivity effects in Airline Captains
+   - Hawthorne Effect: Change in behavior due ot the awareness of being observed or some tangible difference from the observation (compared to usual life) that changes behavior
+- Treatments:
+   - Monitoring of productivity-related behaviors: increased gains for the firm
+   - Performance targets: further increase productivity beyond monitoring alone
+   - pro-social incentives: don't appear to affect productivity by increase job satisfaction
+- Contributions:
+   - Among first to test isolated management practices
+   - Monitoring and target provision can increast productivity, even for high-skilled workers in developed countries
+   - treatments have potential for additional benefits (employee welfare, GHG emissions, etc)
+- One additional takeaway: the existance of the principle-agent problem in this context (manager-employee) $\implies$ that an optimal pigouvian tax on the firms would lead to suboptimal abatement because the employees are not fully internalizing the costs to the firm (since productivity improvements can clearly be made that decrease GHG emissions)
 
 
 > Carranza, Eliana and Robyn Meeks (2020). “Energy Efficiency and Electricity Reliability”. Review of Economics and Statistics.
@@ -354,9 +364,9 @@ Mercadal (2016)
 > Davis, Lucas W. and Catherine D. Wolfram. 2012. “Deregulation, Consolidation and Efficiency: Evidence from U.S. Nuclear Power,” American Economic Journal: Applied Economics, 2012, 4(4), 194-225 
 - Moving away from the traditional regulatory regime yielded efficiency gains in operating performance at nuclear plants.
 - A broader lesson: Even modest improvements in operating efficiency can have substantial environmental implications when that technology represents a large share of total generation.
-- A related and perhaps issue is the effect of restructuring on the risk of nuclear accidents. Paper presents weak evidence that one measure of reactor safety may have actually improved with divestiture,
+- A related issue is the effect of restructuring on the risk of nuclear accidents. Paper presents weak evidence that one measure of reactor safety may have actually improved with divestiture,
 
-> Cicala, Steve (2020) “Imperfect Markets versus Imperfect Regulation in U.S. Electricity Generation,” Forthcoming in the American Economic Review.
+> Cicala, Steve (2022) “Imperfect Markets versus Imperfect Regulation in U.S. Electricity Generation,” American Economic Review.
 - Assess the welfare implications of transitions to market-based dispatch over the period 1999-2012.
    - Evaluates the efficiency implications of moving to a regime in which a wholesale electricity market plays a larger role in coordinating dispatch.
 - Focuses exclusively on supply-side efficiency (Why ?) Key findings?
@@ -367,7 +377,7 @@ Mercadal (2016)
 - Identification challenge: Estimate counterfactual unit-level operations/market dispatch using a rich characterization of "control" areas to control for changes that might otherwise bias a simple DID comparison
 - Concerns with this gains from trade metric?
     - Gains from trade are calculated as wedges measured on a PCA by PCA basis
-    - This approach ignores the full social implications of increased trade across regions.
+    - This approach ignores the full social implications of increased trade across regions. (focused on monetary gains, but there exist possible non-market environmental impacts, like increased coal-burning as a result of trade between PCAs)
     - Emissions implications can be significant if older and under-utilized coal-fired generators increase their generation (and associated emissions) as a result of increased trade between areas.
 
 
@@ -385,21 +395,23 @@ Implications for...
 
 
 
+> Ito, Koichiro (2014). “Do Consumers Respond to Marginal or Average Price? Evidence from Nonlinear Electricity Pricing.” American Economic Review.
+- uses discontinuity at border between different electricity service areas within the same cities that have different non-linear e- prices
+- Uses a wieghting function to approximate how consumers would percieve different forms of the price (marginal, expected marginal, average)
+- Frequent variation in e- prices makes it hard to believe there is HH sorting in reaction to prices, and consumers don't choose e- providers
+- Policymakers claim that shifting from flat price to block non-linear pricing should decrease consumption because marginal price is increasing
+- if consumers are reacting to average price, Ito shows that consumption actually increases under block pricing, because low consumption users now have a lower average price and increase use, and high-consumption users only have a slightly higher average price, so the decrease of high-consumption users does not offset the increase of the low-consumption users
+- Ito shows consumers appear to be reacting to average price
 
-
-
-
-
-
-
-
-> Ito, Koichiro (2012). “Do Consumers Respond to Marginal or Average Price? Evidence from Nonlinear Electricity Pricing.” American Economic Review.
-
-
-
-> Hernandez-Cortes, Danae and Kyle Meng (2020). “Do Environmental Markets Cause Environmental Injustice? Evidence from California's Carbon Market”. NBER WP27205.  
-
-
+*Related papers*:
+- Deryugina, Tatyana, Alexander MacKay, and Julian Reif. 2020.
+"The Long-Run Dynamics of Electricity Demand: Evidence from
+Municipal Aggregation." American Economic Journal: Applied
+Economics, 12 (1): 86-114.
+- Shaffer Blake (2020). "Misunderstanding nonlinear prices:
+Evidence from a natural experiment in electricity demand".
+American Economic Journal: Economic Policy. 12(3).
+79
 
 
 
@@ -409,11 +421,66 @@ Implications for...
 
 ## Emissions markets and environmental justice
 
+**Carbon Pricing topics**
+- Jurisdictional/operational limitations that give rise to incomplete markets.
+- Environmental justice/equity concerns
+- Uncertainty
+- Market power
+- Lobbying/political economy considerations
+- Dynamics/innovation market failures
+- General equilibrium impacts
+
+> Meredith Fowlie, Stephen P Holland, and Erin T Mansur, “What Do Emissions Markets Deliver and to Whom? Evidence from Southern California’s NOx Trading Program,” American Economic Review 102, no. 2 (April 1, 2012): 965–93, https://doi.org/10.1257/aer.102.2.965.
+- looked at California NOx emissions cap and trade program RECLAIM
+- matched RECLAIM facilities to non-RECLAIM facilities and adjusted for bias
+- found 20% reduction in emissions among RECLAIM plants
+- did not find evidence that emissions were being reorganized toward low-socio-economic or racial minority communities
+- BUT in larger cap and trade programs, all facilities will be treated directly or indirectly, so estimating/interpreting program effects is more nuanced
+- policies are not implemented in isolation -- interactions with other policies are hard to disentangle
+
+
+**Emissions Leakage:**
+- In the short run, a shift of production activity and emissions to unregulated
+foreign producers.
+- Over the long term, firms may relocate to jurisdictions with less stringent
+emissions control policies.
+- If demand for carbon intensive inputs in the home country is sufficiently large
+to affect world energy prices, fuel prices fall, and producers in unregulated
+jurisdictions substitute towards these inputs (the GE channel).
+- Negative leakage? Policy-induced reduction in green technology costs
+accelerates adoption elsewhere.
+
+> Lo Prete, Chiara, Ashis Tyagi, and Qingyu Xu (2021) “California’s cap-and-trade program and emission leakage in the Western Intedrconnection: comparing econometric and partial equilibrium model estimates” 
+- match CA CAT regulated power plants to non-CAT regulated power plants in the US to estimate emissions leakage
+- hard to believe we have good controls for CA because there have been large changes in CA's energy mix over the time of the study period that are not matched by other regions (nuclear, renewables)
+
+
+
+**Equity-oriented concerns about market-based regulation**
+- In principle, market-based mechanisms could exacerbate - versus mitigate-
+pre-existing exposure inequalities.
+- The exibility inherent in market mechanisms could allow plant managers to
+make abatement decisions on the basis of political/discriminatory motives
+(versus pure cost minimization.
+- More affluent neighborhoods may be more effective at pressuring plant
+managers to invest in abatement versus purchasing permits.
+- Marginal abatement costs may be lower in more affluent neighborhoods
+(seems unlikely).
+- Conjecture: Economists are too focused on efficiency when it comes to
+emissions pricing.
+- Economist's defense: Hakuna matata! Efficiency and equity are separable
+under carbon pricing (recall the independence property!)
+- Catch 1: `Fair' redistribution requires that we can estimate/anticipate the
+incidence of a tax or trading policy...not easy!
+- Catch 2: Given systemic inequities, disadvantaged groups are rightly
+concerned that compensating transfers will not happen.
+- Catch 3: Hard to pin down an unambiguous notion of fair and equitable?
+- Going forward: (I think) economists need to place more emphasis on equity
+implications.
+
+
+
 > Hernandez-Cortes, Danae and Kyle Meng (2020). “Do Environmental Markets Cause Environmental Injustice? Evidence from California’s Carbon Market”. NBER WP27205. 
-
-
-
-> Lo Prete, Chiara, Ashis Tyagi, and Qingyu Xu (2021) “California’s cap-and-trade program and emission leakage in the Western Interconnection: comparing econometric and partial equilibrium model estimates” 
 
 
 
